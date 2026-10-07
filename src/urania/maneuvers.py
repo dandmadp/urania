@@ -119,6 +119,8 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
     """
     from .orbits import Orbit
 
+    if method not in ("hohmann", "bielliptic"):
+        raise ValueError(f"Unknown transfer method: {method!r} (hohmann, bielliptic)")
     body = initial.body
     if target.body is not body:
         raise ValueError(f"Central bodies differ: {body.name} → {target.body.name}")
@@ -138,6 +140,10 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
     if coplanar:
         coast = 0.0
         node_axis = None
+    elif np.linalg.norm(cross) < 1e-12:
+        # Opposite planes (Δθ ≈ 180°) share every line through the center; burn where we are
+        node_axis = _unit(initial.r)
+        coast = 0.0
     else:
         node_axis = _unit(cross)
         angles = [_angle_between(initial.r, s * node_axis, h1) for s in (1.0, -1.0)]
@@ -191,8 +197,6 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
                 (r2, h2, "burn 2: switch to second transfer ellipse at apoapsis"),
                 (None, h2, "burn 3: circularize on target orbit")]
         plane_parts = [0.0, dtheta, 0.0]
-    else:
-        raise ValueError(f"Unknown transfer method: {method!r} (hohmann, bielliptic)")
 
     if kind == "plane_change":
         plane_parts = [dtheta]

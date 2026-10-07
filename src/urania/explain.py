@@ -169,9 +169,9 @@ def explain_trajectory(tr: Trajectory) -> Explanation:
     if ("j2" in terms or sgp4) and first.ecc < 1.0:
         a = _tb.semi_major_axis(tr.r, tr.v, tr.body.mu)
         T = first.period
-        head = a[tr.t <= tr.t[0] + T]
-        tail = a[tr.t >= tr.t[-1] - T]
-        if tr.t[-1] - tr.t[0] >= 2 * T:
+        head = a[np.abs(tr.t - tr.t[0]) <= T]
+        tail = a[np.abs(tr.t[-1] - tr.t) <= T]
+        if abs(tr.t[-1] - tr.t[0]) >= 2 * T:
             ex.step("Short-period oscillation of the semi-major axis (J2)",
                     f"osculating a range: {_km(a.min())} to {_km(a.max())} "
                     f"(spread {_km(a.max() - a.min())})",

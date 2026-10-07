@@ -62,3 +62,12 @@ def test_from_astropy_converts_scale():
 def test_timezone_rejected():
     with pytest.raises(ValueError):
         Epoch.from_iso("2026-01-01T00:00:00+09:00")
+
+
+def test_epoch_shift_must_be_scalar():
+    import numpy as np
+
+    with pytest.raises(TypeError):
+        J2000 + np.array([1.0, 2.0])
+    with pytest.raises(TypeError):
+        J2000 - [1.0, 2.0] * u.s

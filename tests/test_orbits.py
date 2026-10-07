@@ -97,3 +97,9 @@ def test_presets():
 def test_sun_synchronous_eccentric():
     o = sun_synchronous(600 * u.km, ecc=0.01)
     assert math.degrees(o.raan_rate) * DAY == pytest.approx(0.98563, abs=1e-4)
+
+
+def test_rejects_negative_eccentricity():
+    """ecc=-0.1 used to silently build an e=0.1 orbit (regression test)."""
+    with pytest.raises(ValueError, match="non-negative"):
+        Orbit.from_elements(Earth, a=7e6, ecc=-0.1)

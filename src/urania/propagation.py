@@ -37,6 +37,8 @@ DEFAULT_ATOL = 1e-8
 
 def parse_model(model) -> frozenset[str]:
     """Turn a model spec ("j2+drag" or a fidelity integer) into a set of terms. Two-body is always included."""
+    if isinstance(model, bool) or not isinstance(model, (int, str)):
+        raise TypeError(f"model must be a string such as 'j2+drag' or a fidelity level 0 to 2: {model!r}")
     if isinstance(model, int):
         if model not in FIDELITY_MODELS:
             raise NotImplementedError(f"Fidelity level {model} is not supported yet (0 to 2)")
@@ -175,6 +177,11 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
     body = orbit.body
     duration = units.to_si(duration, units.TIME)
     terms = parse_model(model)
+    if n_points is not None and n_points < 2:
+        raise ValueError(f"n_points must be at least 2 (start and end): {n_points}")
+    if np.linalg.norm(orbit.r) < body.radius:
+        raise ValueError(f"The orbit starts below the surface of {body.name} "
+                         f"(|r| = {np.linalg.norm(orbit.r):.0f} m < R = {body.radius:.0f} m)")
     n = n_points or _default_n_points(orbit, duration)
     t_eval = np.linspace(0.0, duration, n)
 

@@ -137,3 +137,9 @@ def test_trajectory_plots():
     assert "orbit-averaged" in [line.get_label() for line in ax.get_lines()]
     with pytest.raises(ValueError):
         tr.plot(kind="3d")
+
+
+def test_backward_j2_explain_shows_orbit_average():
+    """Backward propagation used to skip the orbit-averaged analysis."""
+    text = str(ISS.propagate(days=-3, model="j2").explain())
+    assert "mean a over the first orbit" in text

@@ -140,3 +140,26 @@ def test_rejects_elliptic_and_other_body():
         ell.transfer_to(GEO)
     with pytest.raises(ValueError, match="Central bodies"):
         Orbit.circular(Mars, 300e3).transfer_to(GEO)
+
+
+def test_opposite_planes():
+    """Prograde → retrograde equatorial (Δθ = 180°): no NaN; the plane flip happens at apoapsis.
+
+    Hand calculation: the transfer apoapsis speed v_a reverses into -v_geo, so Δv2 = v_a + v_geo.
+    """
+    retro_geo = Orbit.circular(Earth, GEO.a - Earth.radius, inc=math.pi)
+    tr = LEO.transfer_to(retro_geo)
+    assert math.degrees(tr.plane_change) == pytest.approx(180.0)
+    assert np.isfinite(tr.total_dv)
+    dv1, dv2, _ = core_m.hohmann(LEO.a, GEO.a, Earth.mu)
+    v_geo = math.sqrt(Earth.mu / GEO.a)
+    v_a = v_geo - dv2
+    assert tr.total_dv == pytest.approx(dv1 + v_a + v_geo, rel=1e-9)
+    _check_on_target(tr)
+
+
+def test_bad_method_rejected_even_for_plane_change():
+    """An unknown method used to be ignored when the radii were equal (regression test)."""
+    start = Orbit.circular(Earth, 500e3, inc=0.5)
+    with pytest.raises(ValueError, match="Unknown transfer method"):
+        start.transfer_to(LEO, method="bogus")

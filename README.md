@@ -4,7 +4,7 @@
 
 urania is a Python library for people who are not professionals but want to compute orbits seriously: CubeSat teams, students, space simulation game players. Every result records the model and assumptions it was computed with, and `.explain()` walks through the formulas and intermediate values step by step.
 
-> Status: MVP in development (v0.0.1). Design: [SPEC.md](SPEC.md). Design decisions: [docs/DECISIONS.md](docs/DECISIONS.md).
+> Status: MVP in development (v0.0.1). Design: [SPEC.md](https://github.com/dandmadp/urania/blob/main/SPEC.md). Design decisions: [docs/DECISIONS.md](https://github.com/dandmadp/urania/blob/main/docs/DECISIONS.md).
 
 ## Installation
 
@@ -135,7 +135,7 @@ TLE elements are SGP4-specific mean elements, so they are kept separate from `Or
 | NASA GMAT R2026a, J2 | 7 days, 420 km, 51.64° | at most 3.3 m (144 m without the true pole, see below) |
 | NASA GMAT R2026a, J2 + drag | 3 days, 400 km, exponential atmosphere | at most 3.3 m (73 m without the true pole) |
 
-SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sanity check rather than precise validation. Precise validation comes from the GMAT comparison ([validation/gmat](validation/gmat), [tests/test_gmat.py](tests/test_gmat.py)).
+SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sanity check rather than precise validation. Precise validation comes from the GMAT comparison ([validation/gmat](https://github.com/dandmadp/urania/blob/main/validation/gmat), [tests/test_gmat.py](https://github.com/dandmadp/urania/blob/main/tests/test_gmat.py)).
 
 GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the J2000 epoch is 7.69" away from the J2000 z axis. urania uses the frame's z axis as the spin axis. The small figures above compare both in a frame whose z axis is the true pole; the larger figures in parentheses are the direct comparison in the J2000 frame.
 
@@ -150,9 +150,9 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
 
 ## Examples
 
-- [examples/quickstart.py](examples/quickstart.py): ISS → GEO transfer
-- [examples/cubesat_decay.py](examples/cubesat_decay.py): 3U CubeSat decay and sensitivity to atmospheric density
-- [examples/tle_vs_propagator.py](examples/tle_vs_propagator.py): comparison with SGP4 using a real ISS TLE
+- [examples/quickstart.py](https://github.com/dandmadp/urania/blob/main/examples/quickstart.py): ISS → GEO transfer
+- [examples/cubesat_decay.py](https://github.com/dandmadp/urania/blob/main/examples/cubesat_decay.py): 3U CubeSat decay and sensitivity to atmospheric density
+- [examples/tle_vs_propagator.py](https://github.com/dandmadp/urania/blob/main/examples/tle_vs_propagator.py): comparison with SGP4 using a real ISS TLE
 
 ## License
 

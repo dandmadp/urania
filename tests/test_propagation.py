@@ -154,3 +154,20 @@ def test_analytic_and_numeric_both_stop_at_surface(days):
     assert a.altitude[-1] == pytest.approx(0.0, abs=1e-3)
     assert a.t[-1] == pytest.approx(b.t[-1], abs=1e-3)
     np.testing.assert_allclose(a.r[-1], b.r[-1], atol=1e-2)
+
+
+def test_rejects_too_few_points():
+    """n_points=1 used to return only the start state (regression test)."""
+    with pytest.raises(ValueError, match="at least 2"):
+        ISS.propagate(3600, n_points=1)
+
+
+def test_rejects_start_below_surface():
+    with pytest.raises(ValueError, match="below the surface"):
+        Orbit.circular(Earth, -10e3).propagate(600, model="j2")
+
+
+@pytest.mark.parametrize("model", [True, 1.0, None])
+def test_rejects_non_model_types(model):
+    with pytest.raises(TypeError):
+        parse_model(model)

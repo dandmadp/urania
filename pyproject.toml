@@ -9,6 +9,19 @@ description = "An astrodynamics library that computes, shows and explains"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "dandmadp" }]
+keywords = ["astrodynamics", "orbital mechanics", "orbit", "satellite", "cubesat", "tle", "sgp4", "hohmann"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Scientific/Engineering :: Physics",
+]
 dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
@@ -17,8 +30,16 @@ dependencies = [
     "astropy>=5.3",
 ]
 
+[project.urls]
+Homepage = "https://github.com/dandmadp/urania"
+Source = "https://github.com/dandmadp/urania"
+Issues = "https://github.com/dandmadp/urania/issues"
+
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["CLAUDE.md", ".gitattributes"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/urania"]

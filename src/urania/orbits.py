@@ -62,6 +62,8 @@ class Orbit:
         """
         if (a is None) == (p is None):
             raise ValueError("Specify exactly one of a and p")
+        if ecc < 0.0:
+            raise ValueError(f"Eccentricity must be non-negative: ecc={ecc}")
         if p is None:
             a = units.to_si(a, units.LENGTH)
             if ecc == 1.0:

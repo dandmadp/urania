@@ -19,6 +19,13 @@ JD_J2000 = 2451545.0
 _DT_J2000 = datetime(2000, 1, 1, 12, 0, 0)
 
 
+def _scalar_seconds(dt) -> float:
+    seconds = units.to_si(dt, units.TIME)
+    if not isinstance(seconds, float):
+        raise TypeError("An Epoch can only be shifted by a single interval, not an array")
+    return seconds
+
+
 @dataclass(frozen=True, order=True)
 class Epoch:
     """A TDB instant, stored as seconds since J2000."""
@@ -69,13 +76,13 @@ class Epoch:
 
     def __add__(self, dt) -> Epoch:
         """Epoch + interval. The interval is seconds (number) or a time Quantity."""
-        return Epoch(self.tdb_seconds + units.to_si(dt, units.TIME))
+        return Epoch(self.tdb_seconds + _scalar_seconds(dt))
 
     def __sub__(self, other):
         """Epoch - Epoch → elapsed seconds (float); Epoch - interval → Epoch."""
         if isinstance(other, Epoch):
             return self.tdb_seconds - other.tdb_seconds
-        return Epoch(self.tdb_seconds - units.to_si(other, units.TIME))
+        return Epoch(self.tdb_seconds - _scalar_seconds(other))
 
     def __repr__(self) -> str:
         return f"Epoch('{self.iso}' TDB)"
