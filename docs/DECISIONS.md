@@ -71,6 +71,9 @@
 - SPEC은 `propagation/` 패키지를 제안했지만 현재 규모(약 200줄)에서는 단일 모듈이 읽기 쉽다.
   힘 모델은 `core/forces.py`, 적분은 `core/propagate.py`에 있어 propagation.py는 조립만 한다.
   충실도 3~4단계가 추가되면 패키지로 나눈다.
+- 같은 이유로 대기 밀도는 별도 파일 없이 `core/forces.py`(지수 대기 표·밀도 함수)와
+  `environment.py`(`ExponentialAtmosphere`)에 둔다. 대기 모델도 Environment 구현체이기 때문이다.
+- 2체 해석해도 수치 적분처럼 천체 표면에 닿으면 멈춘다 (샘플 간 brentq로 도달 시각을 구함).
 
 ## 메모: 6단계 explain()에 반영할 것
 - J2가 있으면 접촉(osculating) 장반경이 단주기로 크게 진동한다 (ISS 고도에서 0 ~ -12 km).

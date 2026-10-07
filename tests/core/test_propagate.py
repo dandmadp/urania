@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from urania.core import forces
-from urania.core.propagate import cowell, kepler_propagate
+from urania.core.propagate import cowell, kepler_propagate, kepler_states
 
 KM = 1e3
 MU = 398600.4418 * KM**3
@@ -65,3 +65,29 @@ def test_cowell_terminal_event_appends_state():
     assert res.terminated
     assert np.linalg.norm(res.r[-1]) == pytest.approx(6500e3, abs=1e-3)
     assert res.t[-1] < 10000.0
+
+
+def test_kepler_states_matches_single():
+    r0, v0 = np.array([7000e3, 0, 0]), np.array([0, 8000.0, 1000.0])
+    dts = [0.0, 1000.0, -500.0, 1e5]
+    r, v = kepler_states(r0, v0, dts, MU)
+    for i, dt in enumerate(dts):
+        ri, vi = kepler_propagate(r0, v0, dt, MU)
+        np.testing.assert_array_equal(r[i], ri)
+        np.testing.assert_array_equal(v[i], vi)
+
+
+def test_kepler_parabolic_matches_cowell():
+    """포물선 해석해(Barker)와 수치 적분 비교."""
+    r0 = np.array([7000e3, 0.0, 0.0])
+    v0 = np.array([0.0, math.sqrt(2 * MU / 7000e3), 0.0])  # 탈출 속도 = 포물선
+    r_ref, _ = kepler_propagate(r0, v0, 20000.0, MU)
+    res = cowell(r0, v0, 20000.0, _twobody)
+    assert np.linalg.norm(res.r[-1] - r_ref) < 1e-2
+
+
+def test_cowell_zero_duration():
+    r0, v0 = np.array([7000e3, 0, 0]), np.array([0, 7546.0, 0])
+    res = cowell(r0, v0, 0.0, _twobody, t_eval=np.zeros(5))
+    assert res.r.shape == (5, 3)
+    np.testing.assert_array_equal(res.r[-1], r0)

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import units
-from .atmosphere import ExponentialAtmosphere
+from .environment import ExponentialAtmosphere
 from .constants import G
 
 

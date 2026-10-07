@@ -65,3 +65,10 @@ def test_sso_impossible_altitude():
     target = 2 * math.pi / (365.24219 * DAY)
     with pytest.raises(ValueError):
         j2.sso_inclination(R + 10000e3, 0.0, MU, R, J2, target)
+
+
+@pytest.mark.parametrize("a, ecc", [(-20000e3, 1.5), (7000e3, 1.0)])
+def test_j2_rates_reject_non_elliptic(a, ecc):
+    """쌍곡선·포물선에서는 원인을 알 수 있는 ValueError (회귀 테스트)."""
+    with pytest.raises(ValueError, match="타원"):
+        j2.raan_rate(a, ecc, 0.5, MU, R, J2)

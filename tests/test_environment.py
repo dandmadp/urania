@@ -40,3 +40,10 @@ def test_environment_passthrough():
 def test_wrong_unit_rejected():
     with pytest.raises(ValueError):
         as_environment(3 * u.s, units.DENSITY)
+
+
+def test_class_instead_of_instance_rejected():
+    from urania.environment import ExponentialAtmosphere
+
+    with pytest.raises(TypeError, match="인스턴스"):
+        as_environment(ExponentialAtmosphere, units.DENSITY)

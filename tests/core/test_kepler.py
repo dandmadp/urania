@@ -75,3 +75,10 @@ def test_invalid_inputs():
         k.mean_to_true(1.0, -0.1)
     with pytest.raises(ValueError):
         k.true_to_hyperbolic(deg(170), 2.0)  # 점근선 120° 밖
+
+
+@pytest.mark.parametrize("M", [1e6, 1e9, 1e12, -1e9])
+def test_barker_large_M_precision(M):
+    """큰 M에서 Cardano 공식의 상쇄 오차가 없어야 한다 (회귀 테스트)."""
+    D = k.mean_to_parabolic(M)
+    assert k.parabolic_to_mean(D) == pytest.approx(M, rel=1e-13)

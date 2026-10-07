@@ -123,10 +123,11 @@ def parabolic_to_mean(D: float) -> float:
 
 def mean_to_parabolic(M: float) -> float:
     """Barker 방정식 D + D³/3 = M 을 닫힌 형태로 푼다."""
-    # 3차 방정식 D³ + 3D - 3M = 0 의 유일한 실근 (Cardano)
-    w = 1.5 * M
-    s = math.sqrt(w * w + 1.0)
-    return math.cbrt(w + s) + math.cbrt(w - s)
+    # 3차 방정식 D³ + 3D - 3M = 0 의 유일한 실근 (Cardano): D = ∛(w+s) + ∛(w-s).
+    # (w+s)(w-s) = -1 이므로 ∛(w-s) = -1/∛(w+s). |w|가 크면 w-s 직접 계산은 상쇄 오차가 크다.
+    w = 1.5 * abs(M)
+    c = math.cbrt(w + math.sqrt(w * w + 1.0))
+    return math.copysign(c - 1.0 / c, M)
 
 
 # ------------------------------------------------------------- 종류 자동 판별

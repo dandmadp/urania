@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from urania.core import atmosphere, forces
+from urania.core import forces
 
 MU = 3.986004418e14
 R = 6378137.0
@@ -46,17 +46,17 @@ def test_drag_opposes_relative_velocity():
                                        (1000, 3.019e-15)])
 def test_exponential_density_table(h_km, rho):
     """Vallado 표 8-4 기준 고도에서는 표의 ρ₀와 같다."""
-    assert atmosphere.exponential_density(h_km * 1e3) == pytest.approx(rho)
+    assert forces.exponential_density(h_km * 1e3) == pytest.approx(rho)
 
 
 def test_exponential_density_within_band():
     # 425 km: 400 km 구간, H = 58.515 km
     expected = 3.725e-12 * np.exp(-25 / 58.515)
-    assert atmosphere.exponential_density(425e3) == pytest.approx(expected)
+    assert forces.exponential_density(425e3) == pytest.approx(expected)
 
 
 def test_exponential_density_monotonic_and_edges():
     hs = np.linspace(0, 1500e3, 3001)
-    rho = [atmosphere.exponential_density(h) for h in hs]
+    rho = [forces.exponential_density(h) for h in hs]
     assert all(a > b for a, b in zip(rho, rho[1:]))
-    assert atmosphere.exponential_density(-100.0) == 1.225
+    assert forces.exponential_density(-100.0) == 1.225

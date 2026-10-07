@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
+from scipy.optimize import brentq
 
 from . import units
 from .core import forces as _forces
@@ -114,6 +115,32 @@ def _default_n_points(orbit: Orbit, duration: float) -> int:
     return min(max(n, 101), 200001)
 
 
+_SURFACE = "천체 표면 도달"
+
+
+def _truncate_at_surface(orbit: Orbit, t, r, v):
+    """해석해 샘플에서 처음 표면 아래로 내려가는 구간을 찾아 그 시점에서 자른다.
+
+    수치 적분의 표면 도달 이벤트와 같은 동작을 해석해에도 맞추기 위함이다.
+    샘플 간격(1바퀴 100점)보다 짧게 스치는 관통은 놓칠 수 있다.
+    """
+    R = orbit.body.radius
+    alt = np.linalg.norm(r, axis=1) - R
+    below = np.nonzero((alt[1:] < 0.0) & (alt[:-1] >= 0.0))[0]
+    if len(below) == 0:
+        return t, r, v, False
+    i = below[0] + 1
+
+    def altitude_at(dt):
+        ri, _ = _prop.kepler_propagate(orbit.r, orbit.v, dt, orbit.body.mu)
+        return np.linalg.norm(ri) - R
+
+    t_hit = brentq(altitude_at, t[i - 1], t[i], xtol=1e-6)
+    r_hit, v_hit = _prop.kepler_propagate(orbit.r, orbit.v, t_hit, orbit.body.mu)
+    return (np.append(t[:i], t_hit), np.vstack((r[:i], r_hit)),
+            np.vstack((v[:i], v_hit)), True)
+
+
 def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
               area=None, mass=None, density=None, method: str = "auto",
               rtol: float = DEFAULT_RTOL, atol: float = DEFAULT_ATOL,
@@ -132,12 +159,12 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
 
     # 2체 해석해
     if terms == {"twobody"} and method in ("auto", "kepler"):
-        states = [_prop.kepler_propagate(orbit.r, orbit.v, dt, body.mu) for dt in t_eval]
-        r = np.array([s[0] for s in states])
-        v = np.array([s[1] for s in states])
+        r, v = _prop.kepler_states(orbit.r, orbit.v, t_eval, body.mu)
+        t, r, v, hit = _truncate_at_surface(orbit, t_eval, r, v)
         info = PropagationInfo(model="twobody", integrator="kepler (해석해)",
-                               rtol=None, atol=None, assumptions=tuple(assumptions))
-        return Trajectory(body, orbit.epoch, t_eval, r, v, info)
+                               rtol=None, atol=None, assumptions=tuple(assumptions),
+                               terminated=_SURFACE if hit else None)
+        return Trajectory(body, orbit.epoch, t, r, v, info)
 
     if method == "kepler":
         raise ValueError("해석해(kepler)는 2체 모델에서만 쓸 수 있습니다")
@@ -189,6 +216,6 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
     info = PropagationInfo(
         model=model_name(terms), integrator=f"scipy solve_ivp {integrator}",
         rtol=rtol, atol=atol, assumptions=tuple(assumptions),
-        terminated="천체 표면 도달" if res.terminated else None, nfev=res.nfev,
+        terminated=_SURFACE if res.terminated else None, nfev=res.nfev,
     )
     return Trajectory(body, orbit.epoch, res.t, res.r, res.v, info)

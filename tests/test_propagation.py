@@ -130,3 +130,27 @@ def test_trajectory_immutable():
     with pytest.raises(ValueError):
         tr.r[0, 0] = 0.0
     assert len(tr) == tr.r.shape[0]
+
+
+def test_days_accepts_quantity():
+    """days=1*u.day 가 86400배 되지 않아야 한다 (회귀 테스트)."""
+    assert ISS.propagate(days=1 * u.day).final.epoch - ISS.epoch == pytest.approx(DAY)
+    assert ISS.propagate(days=12 * u.h).final.epoch - ISS.epoch == pytest.approx(DAY / 2)
+
+
+@pytest.mark.parametrize("model", ["twobody", "j2"])
+def test_zero_duration(model):
+    tr = ISS.propagate(0, model=model)
+    np.testing.assert_allclose(tr.final.r, ISS.r)
+
+
+@pytest.mark.parametrize("days", [0.1, -0.1])
+def test_analytic_and_numeric_both_stop_at_surface(days):
+    """근지점이 지구 안인 궤도: 해석해도 수치 적분처럼 표면에서 멈춘다."""
+    sub = Orbit.from_elements(Earth, a=6000e3, ecc=0.2, nu=math.radians(180))
+    a = sub.propagate(days=days)
+    b = sub.propagate(days=days, method="DOP853")
+    assert a.info.terminated and b.info.terminated
+    assert a.altitude[-1] == pytest.approx(0.0, abs=1e-3)
+    assert a.t[-1] == pytest.approx(b.t[-1], abs=1e-3)
+    np.testing.assert_allclose(a.r[-1], b.r[-1], atol=1e-2)

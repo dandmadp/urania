@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass, field
 from functools import cached_property
 
+import astropy.units as u
 import numpy as np
 
 from . import units
@@ -197,7 +198,7 @@ class Orbit:
 
         Args:
             duration: 전파 시간 (초 또는 시간 Quantity). days와 둘 중 하나만.
-            days: 전파 시간 [일]
+            days: 전파 시간 [일]. 맨 숫자는 일, Quantity면 변환한다.
             model: "twobody", "j2", "j2+drag" 또는 충실도 0~2
             **kwargs: cd, area, mass, density(상수·함수·Environment),
                 method, rtol, atol, n_points. 자세한 내용은 `propagation.propagate`.
@@ -209,7 +210,7 @@ class Orbit:
         if (duration is None) == (days is None):
             raise ValueError("duration과 days 중 정확히 하나를 지정하세요")
         if days is not None:
-            duration = days * DAY
+            duration = units.to_si(days, u.day) * DAY
         return propagate(self, duration, model=model, **kwargs)
 
     def __repr__(self) -> str:
