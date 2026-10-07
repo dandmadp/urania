@@ -1,12 +1,12 @@
-"""GMAT 대조용 스크립트 생성기.
+"""Generator for the GMAT validation scripts.
 
-실행하면 이 폴더에 GMAT 스크립트(*.script)를 만든다. 각 스크립트를 GMAT에서 실행하면
-결과가 tests/fixtures/gmat/<시나리오>.txt 로 저장되고, tests/test_gmat.py가 이를 읽어 비교한다.
+Writes GMAT scripts (*.script) into this folder. Running each script in GMAT saves its output to
+tests/fixtures/gmat/<scenario>.txt, which tests/test_gmat.py reads and compares.
 
     python validation/gmat/make_scripts.py
 
-시나리오는 SCENARIOS에 정의한다. 초기 상태는 urania로 만들고, 중력 상수는 GMAT의
-EGM96 값에 맞춘 GMAT_EARTH를 쓴다 (테스트도 같은 천체를 쓴다).
+Scenarios are defined in SCENARIOS. Initial states come from urania, and the gravity constants use
+GMAT_EARTH, which matches GMAT's EGM96 values (the tests use the same body).
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 FIXTURES = ROOT / "tests" / "fixtures" / "gmat"
 
-# GMAT EGM96.cof 값: μ = 398600.4415 km³/s², R = 6378.1363 km, C̄20 = -4.84165371736e-4
+# GMAT EGM96.cof values: μ = 398600.4415 km³/s², R = 6378.1363 km, C̄20 = -4.84165371736e-4
 GMAT_EARTH = Body(
     name="Earth (GMAT EGM96)",
     mu=398600.4415e9,
@@ -34,8 +34,8 @@ GMAT_EARTH = Body(
     source="GMAT EGM96.cof",
 )
 
-# 기준 시각: 2000-01-01 12:00:00 TT. J2000에서는 세차가 0이라
-# GMAT의 실제 자전축과 urania의 고정 z축 차이가 장동(약 17") 수준으로 작다.
+# Epoch: 2000-01-01 12:00:00 TT. Precession is zero at J2000, so GMAT's true spin axis and
+# urania's fixed z axis differ only by nutation (about 17").
 EPOCH_GMAT = "01 Jan 2000 12:00:00.000"
 
 SCENARIOS = {
@@ -56,7 +56,7 @@ SCENARIOS = {
     ),
 }
 
-# 항력 시나리오의 위성 (C_D·A/m = 0.022 m²/kg)
+# Spacecraft for the drag scenario (C_D·A/m = 0.022 m²/kg)
 DRAG_SAT = dict(cd=2.2, area=1.0, mass=100.0)
 
 TEMPLATE = """% urania validation script: {name}
@@ -129,7 +129,7 @@ def main() -> None:
         )
         path = HERE / f"{name}.script"
         path.write_text(text, encoding="utf-8")
-        print(f"작성: {path}")
+        print(f"Wrote: {path}")
 
 
 if __name__ == "__main__":

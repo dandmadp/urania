@@ -9,20 +9,20 @@ deg = math.radians
 
 
 def test_vallado_example_2_1_elliptic():
-    """Vallado 예제 2-1: M = 235.4°, e = 0.4 → E = 220.512074767522°."""
+    """Vallado example 2-1: M = 235.4°, e = 0.4 → E = 220.512074767522°."""
     E = k.mean_to_eccentric(deg(235.4), 0.4)
     assert math.degrees(E) == pytest.approx(220.512074767522, abs=1e-9)
 
 
 def test_vallado_example_2_3_hyperbolic():
-    """Vallado 예제 2-3: M = 235.4°, e = 2.4 → H = 1.601376144 rad."""
+    """Vallado example 2-3: M = 235.4°, e = 2.4 → H = 1.601376144 rad."""
     H = k.mean_to_hyperbolic(deg(235.4), 2.4)
     assert H == pytest.approx(1.601376144, abs=1e-9)
 
 
 @pytest.mark.parametrize("e", [0.0, 0.01, 0.5, 0.9, 0.99, 0.999999])
 def test_kepler_elliptic_residual(e):
-    """모든 M에서 E - e sin E = M 을 만족해야 한다 (고이심률 포함)."""
+    """E - e sin E = M must hold for every M (including high eccentricity)."""
     for M in np.linspace(0, 2 * math.pi, 361, endpoint=False):
         E = k.mean_to_eccentric(M, e)
         assert 0.0 <= E < 2 * math.pi
@@ -61,7 +61,7 @@ def test_mean_true_roundtrip(e):
 
 
 def test_circular_orbit_anomalies_equal():
-    """e = 0 이면 M = E = ν."""
+    """For e = 0, M = E = ν."""
     for M in [0.0, 1.0, 3.0, 5.0]:
         assert k.mean_to_true(M, 0.0) == pytest.approx(M, abs=1e-14)
 
@@ -74,11 +74,11 @@ def test_invalid_inputs():
     with pytest.raises(ValueError):
         k.mean_to_true(1.0, -0.1)
     with pytest.raises(ValueError):
-        k.true_to_hyperbolic(deg(170), 2.0)  # 점근선 120° 밖
+        k.true_to_hyperbolic(deg(170), 2.0)  # outside the 120° asymptote
 
 
 @pytest.mark.parametrize("M", [1e6, 1e9, 1e12, -1e9])
 def test_barker_large_M_precision(M):
-    """큰 M에서 Cardano 공식의 상쇄 오차가 없어야 한다 (회귀 테스트)."""
+    """No cancellation error in Cardano's formula for large M (regression test)."""
     D = k.mean_to_parabolic(M)
     assert k.parabolic_to_mean(D) == pytest.approx(M, rel=1e-13)

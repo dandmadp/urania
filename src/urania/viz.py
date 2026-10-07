@@ -1,8 +1,7 @@
-"""2D 궤도 그림 (matplotlib).
+"""2D orbit plots (matplotlib).
 
-모든 함수는 matplotlib Axes를 돌려주고, ax를 넘기면 그 위에 그린다.
-라벨은 영어다: matplotlib 기본 폰트에는 한글 글리프가 없다 (DECISIONS D18).
-좌표는 km로 표시한다.
+Every function returns the matplotlib Axes and draws on ax if one is given.
+Coordinates are shown in km.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ def _unit(x: np.ndarray) -> np.ndarray:
 
 
 def _orbit_points(orbit: Orbit, n: int = 361) -> np.ndarray:
-    """궤도 한 바퀴(쌍곡선은 점근선 안쪽)의 관성 좌표 점들 (n×3) [m]."""
+    """Inertial points (n×3) [m] along one orbit (inside the asymptotes for a hyperbola)."""
     el = orbit.elements
     if el.ecc < 1.0:
         nus = np.linspace(0.0, 2.0 * math.pi, n)
@@ -68,7 +67,7 @@ def _finish(ax, title: str) -> None:
 
 
 def plot_orbit(orbit: Orbit, ax=None):
-    """궤도를 자기 궤도면에 그린다. x축은 근점(원 궤도면 승교점) 방향."""
+    """Plot the orbit in its own plane. The x axis points to periapsis (the node for circular orbits)."""
     ax = _axes(ax)
     el = orbit.elements
     r_peri, _ = _el.coe_to_rv(el.p, el.ecc, el.inc, el.raan, el.argp, 0.0, orbit.body.mu)
@@ -90,17 +89,17 @@ def plot_orbit(orbit: Orbit, ax=None):
 
 
 def plot_trajectory(tr: Trajectory, ax=None, kind: str = "orbit"):
-    """전파 결과를 그린다.
+    """Plot a propagation result.
 
-    kind="orbit": 시작 궤도면에 투영한 경로. x축은 시작 위치 방향.
-    kind="altitude": 시간에 따른 고도.
+    kind="orbit": path projected on the initial orbit plane; the x axis points to the start position.
+    kind="altitude": altitude versus time.
     """
     ax = _axes(ax)
     if kind == "altitude":
         days = tr.t / 86400.0
         alt = tr.altitude / KM
         ax.plot(days, alt, color="C0", lw=0.5, alpha=0.6, label="altitude")
-        # 한 바퀴 이동 평균: 궤도 1주기 진동을 걸러 감쇠 추세를 보여준다
+        # One-orbit moving average: filters the once-per-orbit oscillation to show the decay trend
         first = tr.orbit_at(0)
         if first.ecc < 1.0 and len(tr) > 1:
             dt = abs(tr.t[1] - tr.t[0])
@@ -116,7 +115,7 @@ def plot_trajectory(tr: Trajectory, ax=None, kind: str = "orbit"):
         ax.legend(loc="upper right", fontsize="small")
         return ax
     if kind != "orbit":
-        raise ValueError(f"kind는 'orbit' 또는 'altitude'입니다: {kind!r}")
+        raise ValueError(f"kind must be 'orbit' or 'altitude': {kind!r}")
 
     x_hat = _unit(tr.r[0])
     y_hat = np.cross(_unit(np.cross(tr.r[0], tr.v[0])), x_hat)
@@ -131,9 +130,9 @@ def plot_trajectory(tr: Trajectory, ax=None, kind: str = "orbit"):
 
 
 def plot_transfer(t: Transfer, ax=None):
-    """전이를 그린다. 각 궤도를 자기 궤도면에 펼쳐 그리므로 궤도면 변경이 있어도 모양이 그대로다.
+    """Plot a transfer. Each orbit is unfolded into its own plane, so shapes stay true across plane changes.
 
-    x축은 1차 기동 위치(노드) 방향이다. 모든 기동이 노드 축 위에서 일어나므로 펼친 그림이 서로 이어진다.
+    The x axis points to the first burn (the node). All burns lie on the node axis, so the unfolded orbits connect.
     """
     ax = _axes(ax)
     body = t.initial.body
@@ -152,7 +151,7 @@ def plot_transfer(t: Transfer, ax=None):
         x, y = _project(_orbit_points(orbit), *frame(orbit))
         ax.plot(x, y, label=label, **style)
 
-    # 전이 궤도: 실제로 지나는 구간은 실선, 나머지는 점선
+    # Transfer orbits: the flown arc solid, the rest dotted
     transfer_orbits = t.orbits[:-1]
     for k, orbit in enumerate(transfer_orbits):
         fx, fy = frame(orbit)

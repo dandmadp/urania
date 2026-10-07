@@ -1,4 +1,4 @@
-"""urania — 계산하고, 보여주고, 설명하는 우주역학 라이브러리."""
+"""urania — an astrodynamics library that computes, shows and explains."""
 
 from .bodies import Body, Earth, Mars, Moon, Sun
 from .environment import Environment

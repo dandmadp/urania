@@ -18,7 +18,7 @@ def test_quantity_converted_to_si():
 def test_bare_number_is_si():
     assert to_si(7.0e6, units.LENGTH) == 7.0e6
     assert isinstance(to_si(3, units.LENGTH), float)
-    # 맨 숫자 각도는 rad
+    # Plain-number angles are rad
     assert to_si(1.0, units.ANGLE) == 1.0
 
 
@@ -40,7 +40,7 @@ def test_mu_unit():
 def test_incompatible_unit_raises():
     with pytest.raises(UnitError):
         to_si(5 * u.s, units.LENGTH)
-    # UnitError는 ValueError로도 잡힌다
+    # UnitError is also a ValueError
     with pytest.raises(ValueError):
         to_si(5 * u.kg, units.VELOCITY)
 

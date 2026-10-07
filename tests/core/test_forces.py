@@ -23,7 +23,7 @@ def _j2_potential(r):
 @pytest.mark.parametrize("r", [[7000e3, 0, 0], [4000e3, 3000e3, 5000e3], [0, 0, 7000e3],
                                [-5000e3, 2000e3, -4000e3]])
 def test_j2_accel_is_potential_gradient(r):
-    """J2 가속도가 J2 퍼텐셜의 수치 기울기와 일치해야 한다."""
+    """The J2 acceleration must match the numerical gradient of the J2 potential."""
     r = np.array(r, dtype=float)
     h = 1.0
     grad = np.array([(_j2_potential(r + h * e) - _j2_potential(r - h * e)) / (2 * h)
@@ -45,12 +45,12 @@ def test_drag_opposes_relative_velocity():
 @pytest.mark.parametrize("h_km, rho", [(0, 1.225), (100, 5.297e-7), (400, 3.725e-12),
                                        (1000, 3.019e-15)])
 def test_exponential_density_table(h_km, rho):
-    """Vallado 표 8-4 기준 고도에서는 표의 ρ₀와 같다."""
+    """At the base altitudes of Vallado table 8-4 the density equals the tabulated ρ₀."""
     assert forces.exponential_density(h_km * 1e3) == pytest.approx(rho)
 
 
 def test_exponential_density_within_band():
-    # 425 km: 400 km 구간, H = 58.515 km
+    # 425 km: 400 km band, H = 58.515 km
     expected = 3.725e-12 * np.exp(-25 / 58.515)
     assert forces.exponential_density(425e3) == pytest.approx(expected)
 

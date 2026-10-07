@@ -1,10 +1,10 @@
-"""시간 표현.
+"""Time representation.
 
-내부 시간은 J2000(2000-01-01 12:00:00 TDB)부터 경과한 TDB 초 하나로 고정한다.
-UTC/TAI 등 다른 시간 척도 변환은 MVP 범위 밖이며, 필요하면 astropy Time을 거친다.
+Internal time is a single number: TDB seconds elapsed since J2000 (2000-01-01 12:00:00 TDB).
+Conversion to other time scales such as UTC/TAI is out of MVP scope; use astropy Time if needed.
 
-달력 문자열·율리우스일 입력은 TDB 기준으로 해석한다.
-TDB 달력에는 윤초가 없으므로 단순 날짜 차이로 경과 초를 계산해도 정확하다.
+Calendar strings and Julian dates are interpreted as TDB.
+The TDB calendar has no leap seconds, so a plain date difference gives exact elapsed seconds.
 """
 
 from __future__ import annotations
@@ -21,58 +21,58 @@ _DT_J2000 = datetime(2000, 1, 1, 12, 0, 0)
 
 @dataclass(frozen=True, order=True)
 class Epoch:
-    """TDB 시각. 내부 값은 J2000 기준 경과 초."""
+    """A TDB instant, stored as seconds since J2000."""
 
     tdb_seconds: float
 
-    # ---------------------------------------------------------- 생성
+    # ---------------------------------------------------------- construction
 
     @classmethod
     def from_iso(cls, text: str) -> Epoch:
-        """ISO 8601 문자열(TDB 기준)로 생성. 예: "2026-10-07T12:00:00"."""
+        """From an ISO 8601 string (TDB), e.g. "2026-10-07T12:00:00"."""
         dt = datetime.fromisoformat(text)
         if dt.tzinfo is not None:
-            raise ValueError("시간대 정보는 지원하지 않습니다 (TDB 달력으로 해석)")
+            raise ValueError("Time zone information is not supported (strings are read as TDB)")
         return cls((dt - _DT_J2000).total_seconds())
 
     @classmethod
     def from_jd(cls, jd: float) -> Epoch:
-        """TDB 율리우스일로 생성."""
+        """From a TDB Julian date."""
         return cls((jd - JD_J2000) * SECONDS_PER_DAY)
 
     @classmethod
     def from_astropy(cls, t) -> Epoch:
-        """astropy Time으로 생성. 다른 시간 척도는 astropy가 TDB로 변환한다."""
+        """From an astropy Time. astropy converts other time scales to TDB."""
         tdb = t.tdb
         return cls(((tdb.jd1 - JD_J2000) + tdb.jd2) * SECONDS_PER_DAY)
 
-    # ---------------------------------------------------------- 출력
+    # ---------------------------------------------------------- output
 
     @property
     def jd(self) -> float:
-        """TDB 율리우스일."""
+        """TDB Julian date."""
         return JD_J2000 + self.tdb_seconds / SECONDS_PER_DAY
 
     @property
     def iso(self) -> str:
-        """ISO 8601 문자열 (TDB, 마이크로초 단위)."""
+        """ISO 8601 string (TDB, microsecond resolution)."""
         return (_DT_J2000 + timedelta(seconds=self.tdb_seconds)).isoformat()
 
     def to_astropy(self):
-        """astropy Time(scale='tdb')으로 변환."""
+        """Convert to astropy Time(scale='tdb')."""
         from astropy.time import Time
 
         return Time(JD_J2000, self.tdb_seconds / SECONDS_PER_DAY,
                     format="jd", scale="tdb")
 
-    # ---------------------------------------------------------- 연산
+    # ---------------------------------------------------------- arithmetic
 
     def __add__(self, dt) -> Epoch:
-        """시각 + 시간 간격. 간격은 초(숫자) 또는 시간 Quantity."""
+        """Epoch + interval. The interval is seconds (number) or a time Quantity."""
         return Epoch(self.tdb_seconds + units.to_si(dt, units.TIME))
 
     def __sub__(self, other):
-        """시각 - 시각 → 경과 초(float), 시각 - 간격 → 시각."""
+        """Epoch - Epoch → elapsed seconds (float); Epoch - interval → Epoch."""
         if isinstance(other, Epoch):
             return self.tdb_seconds - other.tdb_seconds
         return Epoch(self.tdb_seconds - units.to_si(other, units.TIME))

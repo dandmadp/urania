@@ -11,7 +11,7 @@ ISS_TEXT = """ISS (ZARYA)
 1 25544U 98067A   19343.69339541  .00001764  00000-0  38792-4 0  9991
 2 25544  51.6439 211.2001 0007417  17.6667  85.6398 15.50103472202482"""
 
-# Vallado SGP4 검증 세트 (SGP4-VER.TLE, 위성 00005)
+# Vallado SGP4 verification set (SGP4-VER.TLE, satellite 00005)
 V5_L1 = "1 00005U 58002B   00179.78495062  .00000023  00000-0  28098-4 0  4753"
 V5_L2 = "2 00005  34.2682 348.7242 1859667 331.7664  19.3264 10.82419157413667"
 
@@ -22,7 +22,7 @@ def iss():
 
 
 def test_vallado_sgp4_verification_00005():
-    """Vallado et al. 2006 "Revisiting Spacetrack Report #3", tcppver.out 위성 00005."""
+    """Vallado et al. 2006 "Revisiting Spacetrack Report #3", tcppver.out satellite 00005."""
     tle = TLEOrbit(V5_L1, V5_L2)
     tr = tle.propagate(360 * 60, n_points=2)
     np.testing.assert_allclose(tr.r[0] / 1e3, [7022.46529266, -1400.08296755, 0.03995155], atol=1e-6)
@@ -50,7 +50,7 @@ def test_epoch_utc_to_tdb(iss):
 
 
 def test_state_at_matches_sgp4_direct(iss):
-    """Epoch(TDB) → UTC 변환을 거쳐도 sgp4 직접 호출과 같아야 한다."""
+    """Going through Epoch (TDB) → UTC must match calling sgp4 directly."""
     jd, fr = 2458827, 0.362605
     e, r_ref, v_ref = iss._sat.sgp4(jd, fr)
     epoch = Epoch.from_astropy(Time(jd, fr, format="jd", scale="utc"))
@@ -71,11 +71,11 @@ def test_checksum_validation():
     lines = ISS_TEXT.splitlines()
     assert checksum(lines[1]) == 1 and checksum(lines[2]) == 2
     bad = lines[1][:20] + ("9" if lines[1][20] != "9" else "8") + lines[1][21:]
-    with pytest.raises(ValueError, match="체크섬"):
+    with pytest.raises(ValueError, match="checksum"):
         TLEOrbit(bad, lines[2])
     with pytest.raises(ValueError):
-        TLEOrbit(lines[2], lines[1])          # 줄 순서 바뀜
-    with pytest.raises(ValueError, match="위성 번호"):
+        TLEOrbit(lines[2], lines[1])          # lines swapped
+    with pytest.raises(ValueError, match="satellite numbers"):
         TLEOrbit(lines[1], V5_L2)
 
 
@@ -102,12 +102,12 @@ def test_to_orbit(iss):
     assert o.epoch == iss.epoch
     r, v = iss.state_at(iss.epoch)
     np.testing.assert_array_equal(o.r, r)
-    # 접촉 경사각은 평균 경사각과 비슷하다
+    # The osculating inclination is close to the mean inclination
     assert math.degrees(o.inc) == pytest.approx(51.64, abs=0.05)
 
 
 def test_own_propagator_close_to_sgp4_short_term(iss):
-    """to_orbit()으로 넘긴 뒤 J2 전파 1시간: SGP4와 수 km 이내 (8단계에서 정밀 비교)."""
+    """One hour of J2 propagation after to_orbit(): within a few km of SGP4."""
     o = iss.to_orbit()
     mine = o.propagate(3600, model="j2").final.r
     sgp4, _ = iss.state_at(iss.epoch + 3600)
@@ -115,11 +115,11 @@ def test_own_propagator_close_to_sgp4_short_term(iss):
 
 
 def test_own_j2_propagator_vs_sgp4_one_day(iss):
-    """실제 ISS TLE: SGP4 상태에서 출발한 urania J2 전파가 24시간 동안 SGP4와 3 km 이내.
+    """Real ISS TLE: urania J2 propagation from the SGP4 state stays within 3 km of SGP4 for 24 hours.
 
-    측정값 (2019-12-09 TLE, 1분 간격): 최대 2.34 km (23.2시간), 24시간 끝 0.98 km.
-    SGP4 자체 정확도가 약 1 km이고 J3·J4·항력 차이가 있어 이 수준이 정상이다.
-    2체만 쓰면 같은 조건에서 24시간 뒤 645 km 벌어진다.
+    Measured (2019-12-09 TLE, 1-minute steps): max 2.34 km (at 23.2 h), 0.98 km at 24 h.
+    SGP4 itself is accurate to about 1 km and includes J3, J4 and drag, so this level is expected.
+    Two-body alone drifts 645 km after 24 hours under the same conditions.
     """
     o = iss.to_orbit()
     sgp4 = iss.propagate(days=1, n_points=1441)
@@ -129,7 +129,7 @@ def test_own_j2_propagator_vs_sgp4_one_day(iss):
 
 
 def test_decayed_satellite_terminates():
-    """평균 운동이 크고 B*가 매우 큰 위성은 SGP4가 오류(재진입)를 내고 거기서 멈춘다."""
+    """A satellite with high mean motion and a huge B* triggers an SGP4 error (decay) and stops there."""
     def with_checksum(line):
         return line[:68] + str(checksum(line))
 
@@ -137,7 +137,7 @@ def test_decayed_satellite_terminates():
     l2 = with_checksum("2 99999  51.6000 100.0000 0005000  90.0000 270.0000 16.30000000000010")
     tle = TLEOrbit(l1, l2)
     tr = tle.propagate(days=30)
-    assert tr.info.terminated and "SGP4 오류" in tr.info.terminated
+    assert tr.info.terminated and "SGP4 error" in tr.info.terminated
     assert tr.t[-1] < 30 * 86400
 
 

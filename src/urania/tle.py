@@ -1,12 +1,12 @@
-"""TLE(Two-Line Element) 궤도: sgp4 패키지 래퍼.
+"""TLE (Two-Line Element) orbits: a wrapper around the sgp4 package.
 
-TLE 요소는 SGP4 이론 전용 평균 요소라, SGP4로만 전파해야 의미가 있다.
-그래서 `Orbit`과 섞지 않고 별도 객체로 두며, 자체 전파기로 넘기려면 `to_orbit()`으로
-특정 시각의 상태벡터를 명시적으로 꺼낸다.
+TLE elements are mean elements specific to SGP4 theory and are meaningful only when propagated with SGP4.
+So they are kept apart from `Orbit` in a separate object; to hand over to the urania propagator,
+extract a state vector at a given epoch explicitly with `to_orbit()`.
 
-- 좌표계: SGP4 출력인 TEME를 그대로 관성계로 쓴다 (세차·장동 변환 없음).
-- 시간: TLE 시각은 UTC다. TDB(`Epoch`) 변환은 astropy가 한다.
-- 중력 상수: TLE 생성 규약인 WGS72.
+- Frame: the SGP4 output frame TEME is used as the inertial frame as is (no precession/nutation).
+- Time: TLE epochs are UTC. astropy converts them to TDB (`Epoch`).
+- Gravity constants: WGS72, the convention TLEs are generated with.
 """
 
 from __future__ import annotations
@@ -23,31 +23,31 @@ from .propagation import PropagationInfo, Trajectory, resolve_duration
 from .time import JD_J2000, SECONDS_PER_DAY, Epoch
 
 KM = 1e3
-MU_WGS72 = 398600.8e9   # TLE 규약의 지구 μ [m³/s²]
+MU_WGS72 = 398600.8e9   # Earth μ of the TLE convention [m³/s²]
 
 ASSUMPTIONS = (
-    "SGP4/SDP4 해석 이론 (TLE 평균 요소 전용, sgp4 패키지)",
-    "좌표계: TEME를 관성계로 그대로 사용 (세차·장동 미변환)",
-    "중력 상수: WGS72 (TLE 생성 규약)",
-    "TLE 시각은 UTC, TDB 변환은 astropy",
-    "정확도는 TLE 나이에 따라 나빠진다 (보통 epoch에서 1 km, 하루에 수 km 증가)",
+    "SGP4/SDP4 analytic theory (for TLE mean elements only, sgp4 package)",
+    "frame: TEME used as the inertial frame (no precession/nutation transformation)",
+    "gravity constants: WGS72 (TLE convention)",
+    "TLE epoch is UTC, converted to TDB by astropy",
+    "accuracy degrades with TLE age (typically 1 km at epoch, growing by several km per day)",
 )
 
 
 def checksum(line: str) -> int:
-    """TLE 줄의 체크섬: 앞 68글자의 숫자 합 + '-' 개수, mod 10."""
+    """TLE line checksum: sum of the digits in the first 68 characters plus the number of '-', mod 10."""
     return sum(int(c) if c.isdigit() else (1 if c == "-" else 0) for c in line[:68]) % 10
 
 
 def _validate(line: str, number: str) -> None:
     if len(line) < 69 or line[0] != number:
-        raise ValueError(f"TLE {number}번째 줄 형식이 아닙니다: {line!r}")
+        raise ValueError(f"Not a valid TLE line {number}: {line!r}")
     if not line[68].isdigit() or int(line[68]) != checksum(line):
-        raise ValueError(f"TLE {number}번째 줄 체크섬 불일치 (기대 {checksum(line)}, 실제 {line[68]})")
+        raise ValueError(f"TLE line {number} checksum mismatch (expected {checksum(line)}, got {line[68]})")
 
 
 def _epoch_to_utc_jd(seconds) -> tuple[np.ndarray, np.ndarray]:
-    """J2000 기준 TDB 초 (스칼라 또는 배열) → UTC 율리우스일 (정수부, 소수부)."""
+    """TDB seconds since J2000 (scalar or array) → UTC Julian date (integer part, fraction)."""
     s = np.atleast_1d(np.asarray(seconds, dtype=float))
     utc = Time(np.full(s.shape, JD_J2000), s / SECONDS_PER_DAY, format="jd", scale="tdb").utc
     return utc.jd1, utc.jd2
@@ -55,7 +55,7 @@ def _epoch_to_utc_jd(seconds) -> tuple[np.ndarray, np.ndarray]:
 
 @dataclass(frozen=True, eq=False)
 class TLEOrbit:
-    """TLE로 정의된 지구 궤도. SGP4로만 전파한다."""
+    """An Earth orbit defined by a TLE. Propagated with SGP4 only."""
 
     line1: str
     line2: str
@@ -68,12 +68,12 @@ class TLEOrbit:
         _validate(self.line1, "1")
         _validate(self.line2, "2")
         if self.line1[2:7] != self.line2[2:7]:
-            raise ValueError("두 줄의 위성 번호가 다릅니다")
+            raise ValueError("The two lines have different satellite numbers")
         object.__setattr__(self, "_sat", Satrec.twoline2rv(self.line1, self.line2, WGS72))
 
     @classmethod
     def from_text(cls, text: str) -> TLEOrbit:
-        """2줄 또는 3줄(첫 줄이 이름) TLE 텍스트로 생성."""
+        """From two-line or three-line (name first) TLE text."""
         lines = [ln for ln in text.strip().splitlines() if ln.strip()]
         if len(lines) == 2:
             return cls(lines[0], lines[1])
@@ -82,71 +82,71 @@ class TLEOrbit:
             if name.startswith("0 "):
                 name = name[2:]
             return cls(lines[1], lines[2], name=name)
-        raise ValueError(f"TLE는 2줄 또는 3줄이어야 합니다 ({len(lines)}줄)")
+        raise ValueError(f"A TLE must have 2 or 3 lines ({len(lines)} given)")
 
-    # ---------------------------------------------------------- TLE 요소 (SGP4 평균 요소)
+    # ---------------------------------------------------------- TLE elements (SGP4 mean elements)
 
     @property
     def satnum(self) -> str:
-        """NORAD 위성 번호."""
+        """NORAD catalog number."""
         return self.line1[2:7].strip()
 
     @property
     def epoch(self) -> Epoch:
-        """TLE 기준 시각 (TDB로 변환)."""
+        """TLE epoch (converted to TDB)."""
         s = self._sat
         return Epoch.from_astropy(Time(s.jdsatepoch, s.jdsatepochF, format="jd", scale="utc"))
 
     @property
     def inc(self) -> float:
-        """평균 경사각 [rad]."""
+        """Mean inclination [rad]."""
         return self._sat.inclo
 
     @property
     def raan(self) -> float:
-        """평균 승교점 적경 [rad]."""
+        """Mean right ascension of the ascending node [rad]."""
         return self._sat.nodeo
 
     @property
     def ecc(self) -> float:
-        """평균 이심률."""
+        """Mean eccentricity."""
         return self._sat.ecco
 
     @property
     def argp(self) -> float:
-        """평균 근지점 인수 [rad]."""
+        """Mean argument of perigee [rad]."""
         return self._sat.argpo
 
     @property
     def M(self) -> float:
-        """평균근점이각 [rad]."""
+        """Mean anomaly [rad]."""
         return self._sat.mo
 
     @property
     def mean_motion(self) -> float:
-        """평균 운동 [rad/s] (Kozai 평균)."""
+        """Mean motion [rad/s] (Kozai mean)."""
         return self._sat.no_kozai / 60.0
 
     @property
     def revs_per_day(self) -> float:
-        """하루 공전 횟수."""
+        """Revolutions per day."""
         return self.mean_motion * SECONDS_PER_DAY / (2.0 * math.pi)
 
     @property
     def bstar(self) -> float:
-        """항력 항 B* [1/지구반지름]."""
+        """Drag term B* [1/Earth radii]."""
         return self._sat.bstar
 
-    # ---------------------------------------------------------- SGP4 전파
+    # ---------------------------------------------------------- SGP4 propagation
 
     def states(self, epochs) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """여러 시각의 TEME 상태벡터.
+        """TEME state vectors at several epochs.
 
         Args:
-            epochs: Epoch, Epoch 시퀀스, 또는 J2000 기준 TDB 초 배열
+            epochs: an Epoch, a sequence of Epochs, or an array of TDB seconds since J2000
 
         Returns:
-            (error, r [m] N×3, v [m/s] N×3). error는 SGP4 오류 코드 (0 = 정상).
+            (error, r [m] N×3, v [m/s] N×3). error is the SGP4 error code (0 = OK).
         """
         if isinstance(epochs, Epoch):
             seconds = [epochs.tdb_seconds]
@@ -159,20 +159,20 @@ class TLEOrbit:
         return err, r * KM, v * KM
 
     def state_at(self, epoch: Epoch) -> tuple[np.ndarray, np.ndarray]:
-        """한 시각의 TEME 상태벡터 (r [m], v [m/s])."""
+        """TEME state vector at one epoch (r [m], v [m/s])."""
         err, r, v = self.states(epoch)
         if err[0]:
-            raise RuntimeError(f"SGP4 오류 {err[0]}: {SGP4_ERRORS[err[0]]}")
+            raise RuntimeError(f"SGP4 error {err[0]}: {SGP4_ERRORS[err[0]]}")
         return r[0], v[0]
 
     def propagate(self, duration=None, *, days=None, start: Epoch | None = None,
                   n_points: int | None = None) -> Trajectory:
-        """SGP4로 전파해 Trajectory를 돌려준다.
+        """Propagate with SGP4 and return a Trajectory.
 
         Args:
-            duration, days: 전파 시간 (둘 중 하나)
-            start: 시작 시각. 기본값은 TLE epoch.
-            n_points: 출력 점 개수. 기본값은 1바퀴 100점.
+            duration, days: propagation time (give one)
+            start: start epoch. Defaults to the TLE epoch.
+            n_points: number of output points. Defaults to 100 per orbit.
         """
         duration = resolve_duration(duration, days)
         start = start or self.epoch
@@ -187,20 +187,20 @@ class TLEOrbit:
         if len(bad):
             i = bad[0]
             if i == 0:
-                raise RuntimeError(f"SGP4 오류 {err[0]}: {SGP4_ERRORS[err[0]]}")
-            terminated = f"SGP4 오류 {err[i]} ({SGP4_ERRORS[err[i]]})"
+                raise RuntimeError(f"SGP4 error {err[0]}: {SGP4_ERRORS[err[0]]}")
+            terminated = f"SGP4 error {err[i]} ({SGP4_ERRORS[err[i]]})"
             t, r, v = t[:i], r[:i], v[:i]
 
-        info = PropagationInfo(model="sgp4", integrator="SGP4 (sgp4 패키지, WGS72)",
+        info = PropagationInfo(model="sgp4", integrator="SGP4 (sgp4 package, WGS72)",
                                rtol=None, atol=None, assumptions=ASSUMPTIONS,
                                terminated=terminated)
         return Trajectory(Earth, start, t, r, v, info)
 
     def to_orbit(self, epoch: Epoch | None = None):
-        """SGP4 상태벡터를 꺼내 자체 전파기용 Orbit으로 바꾼다 (기본: TLE epoch).
+        """Extract the SGP4 state vector as an Orbit for the urania propagator (default: TLE epoch).
 
-        이후 Orbit.propagate()는 SGP4가 아니라 urania 전파기를 쓴다.
-        좌표계는 TEME 그대로이고, 중심천체 상수는 Earth(WGS 84)다.
+        Orbit.propagate() then uses the urania propagator, not SGP4.
+        The frame stays TEME; the central body constants are Earth (WGS 84).
         """
         from .orbits import Orbit
 
@@ -208,10 +208,10 @@ class TLEOrbit:
         r, v = self.state_at(epoch)
         return Orbit(Earth, r, v, epoch)
 
-    # ---------------------------------------------------------- 설명
+    # ---------------------------------------------------------- explanation
 
     def explain(self):
-        """TLE 필드를 풀어 보여준다."""
+        """Decode and show the TLE fields."""
         from .explain import explain_tle
 
         return explain_tle(self)

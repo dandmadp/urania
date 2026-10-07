@@ -10,7 +10,7 @@ from urania.core.propagate import kepler_propagate
 
 
 def _check_on_target(transfer):
-    """전이를 마친 궤도가 목표 궤도와 크기·모양·궤도면이 같아야 한다."""
+    """After the transfer the orbit must match the target in size, shape and plane."""
     f, t = transfer.final, transfer.target
     assert f.a == pytest.approx(t.a, rel=1e-9)
     assert f.ecc < 1e-9
@@ -37,7 +37,7 @@ def test_transfer_orbit_apsides():
     t_orbit = tr.orbits[0]
     assert t_orbit.r_periapsis == pytest.approx(LEO.a, rel=1e-12)
     assert t_orbit.r_apoapsis == pytest.approx(GEO.a, rel=1e-12)
-    # 1차 기동 후 tof만큼 전파하면 2차 기동 위치에 있어야 한다
+    # Propagating tof after burn 1 must reach the burn 2 position
     r, _ = kepler_propagate(t_orbit.r, t_orbit.v, tr.tof, Earth.mu)
     np.testing.assert_allclose(r, tr.burns[1].r, atol=1e-3)
 
@@ -46,7 +46,7 @@ def test_burns_are_tangential_when_coplanar():
     tr = LEO.transfer_to(GEO)
     for b, o in zip(tr.burns, [LEO, tr.orbits[0]]):
         assert np.linalg.norm(np.cross(b.dv, b.r)) / (b.magnitude * np.linalg.norm(b.r)) \
-            == pytest.approx(1.0)  # Δv ⟂ r (원 궤도 접선)
+            == pytest.approx(1.0)  # Δv ⟂ r (tangential on a circular orbit)
 
 
 def test_descending_transfer():
@@ -64,21 +64,21 @@ def test_iss_to_geo_with_plane_change():
     assert tr.burns[0].magnitude == pytest.approx(dv1, rel=1e-9)
     assert tr.burns[1].magnitude == pytest.approx(dv2, rel=1e-9)
     _check_on_target(tr)
-    # 최적 분배가 원점 몰아주기보다 싸다
+    # The optimal split is cheaper than doing it all at apoapsis
     assert tr.total_dv < ISS.transfer_to(GEO, plane_split=0.0).total_dv
 
 
 def test_plane_change_waits_for_node():
-    """노드가 아닌 곳에서 시작하면 노드까지 기다린 뒤 기동한다."""
+    """Starting away from the node, the first burn waits until the node."""
     start = Orbit.circular(Earth, 500e3, inc=30 * u.deg, raan=20 * u.deg, arglat=100 * u.deg)
     target = Orbit.circular(Earth, 2000e3, inc=50 * u.deg, raan=80 * u.deg)
     tr = start.transfer_to(target)
     assert 0.0 < tr.coast < start.period / 2
-    # 두 궤도면 사이 각도: cos Δθ = cos i1 cos i2 + sin i1 sin i2 cos ΔΩ (구면삼각법)
+    # Angle between the planes: cos Δθ = cos i1 cos i2 + sin i1 sin i2 cos ΔΩ (spherical trigonometry)
     i1, i2, dO = math.radians(30), math.radians(50), math.radians(60)
     expected = math.acos(math.cos(i1) * math.cos(i2) + math.sin(i1) * math.sin(i2) * math.cos(dO))
     assert tr.plane_change == pytest.approx(expected)
-    # 첫 기동 위치는 두 궤도면 모두에 있다 (노드)
+    # The first burn lies in both planes (the node)
     for o in (start, target):
         h = np.cross(o.r, o.v)
         assert abs(h @ tr.burns[0].r) / (np.linalg.norm(h) * np.linalg.norm(tr.burns[0].r)) < 1e-9
@@ -119,13 +119,13 @@ def test_bielliptic_matches_core():
 def test_bielliptic_with_plane_change_at_rb():
     target = Orbit.circular(Earth, 20 * LEO.a - Earth.radius, inc=30 * u.deg)
     tr = LEO.transfer_to(target, "bielliptic", rb=40 * LEO.a * u.m)
-    assert "궤도면" in tr.burns[1].description
+    assert "plane" in tr.burns[1].description
     _check_on_target(tr)
 
 
 @pytest.mark.parametrize("kwargs, err", [
     ({"method": "lambert"}, ValueError),
-    ({"method": "bielliptic"}, ValueError),                 # rb 없음
+    ({"method": "bielliptic"}, ValueError),                 # rb missing
     ({"method": "bielliptic", "rb": 10000e3}, ValueError),  # rb < r2
     ({"plane_split": 1.5}, ValueError),
 ])
@@ -136,7 +136,7 @@ def test_invalid_arguments(kwargs, err):
 
 def test_rejects_elliptic_and_other_body():
     ell = Orbit.from_elements(Earth, a=10000e3, ecc=0.1)
-    with pytest.raises(ValueError, match="원 궤도"):
+    with pytest.raises(ValueError, match="not circular"):
         ell.transfer_to(GEO)
-    with pytest.raises(ValueError, match="중심천체"):
+    with pytest.raises(ValueError, match="Central bodies"):
         Orbit.circular(Mars, 300e3).transfer_to(GEO)

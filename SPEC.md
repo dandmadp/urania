@@ -1,119 +1,119 @@
-# urania — 우주역학 라이브러리 설계 명세 (MVP)
+# urania — Astrodynamics Library Design Specification (MVP)
 
-> **계산하고, 보여주고, 설명하는 우주역학 라이브러리**
-> 패키지 이름: **urania** (천문학의 뮤즈 우라니아에서 따옴). 2026-10-07 기준 PyPI에서 비어 있음 확인. 작업 시작 시 빈 패키지로 이름을 먼저 선점할 것.
+> **An astrodynamics library that computes, shows and explains**
+> Package name: **urania** (after Urania, the muse of astronomy). Confirmed free on PyPI as of 2026-10-07. Reserve the name with an empty package when work starts.
 
-## 1. 목적과 대상 사용자
+## 1. Purpose and target users
 
-- 대상: 대학 동아리(큐브샛 등), 학생, 우주 시뮬레이션 게임 플레이어, 교육 콘텐츠 제작자, 우주항공 덕후
-- 공통 특성: 전문가는 아니지만 진지하게 우주를 이해하고 계산하고 싶은 사람
-- 정확도 목표: 교과서 수준 이상, 큐브샛 동아리가 실무 계산에 쓸 수 있는 수준. 우주기관급(고차 중력장 등)은 목표 아님
-- 모든 결과는 검증 가능해야 하며, 어떤 가정·모델로 계산됐는지 결과에 기록한다
+- Audience: university clubs (CubeSat teams, etc.), students, space simulation game players, educational content creators, space enthusiasts
+- What they share: not professionals, but serious about understanding and computing things in space
+- Accuracy target: at least textbook level, good enough for a CubeSat team's practical calculations. Space-agency level (high-order gravity fields, etc.) is not a goal
+- Every result must be verifiable, and must record which assumptions and models produced it
 
-## 2. 핵심 설계 원칙
+## 2. Core design principles
 
-1. **객체형 API가 공식 입구**
-   - 문서, README, 튜토리얼 예제는 전부 객체형으로 작성
-   - 예: `ISS.orbit.transfer_to(GEO).plot()`
-2. **내부는 함수형 코어**
-   - 실제 계산은 `urania.core`의 순수 함수에만 구현
-   - 객체 메서드는 core 함수를 호출만 한다 (구현은 한 곳에만)
-   - core 함수는 순수 숫자(SI)로도 동작해야 함 → 교과서 예제 검증용
-3. **불변 객체**
-   - 모든 주요 객체는 `dataclass(frozen=True)` 등으로 불변
-   - `orbit.propagate(...)`는 원본을 바꾸지 않고 새 객체를 반환
-4. **단위: 내부 SI 고정, 경계에서만 변환**
-   - 내부 계산은 m, kg, s, K, W만 사용
-   - 입력: 단위 붙은 값(astropy.units 또는 pint 중 택1, 선택 근거를 남길 것)이면 변환, 맨 숫자면 SI로 간주
-   - 출력: 기본 SI, 요청 시 변환
-5. **시간: 내부는 항상 TDB 기준 초(epoch 기준 경과 초)로 고정**
-   - UTC/TAI 등 변환 기능은 MVP 이후. 단, 나중에 붙일 수 있도록 시간 표현을 한 타입으로 캡슐화
-6. **환경 요소는 인자 주입**
-   - 라이브러리는 계산의 틀만 책임지고, 환경 데이터(방사선, 태양 복사 등)는 사용자가 넣는다
-   - 세 가지 형태를 모두 허용: 상수 / `f(position, t)` 함수 / `Environment` 객체
-   - 내부에서는 상수도 "항상 같은 값을 반환하는 함수"로 감싸 단일 형태로 처리
-   - MVP에서는 환경 모델 자체는 구현하지 않고 이 주입 구조(인터페이스)만 열어둔다
-7. **충실도(fidelity) 단계 선택**
-   - 0: 2체 / 1: +J2 / 2: +대기 항력 (MVP 범위)
-   - 3: +달·태양 섭동 / 4: +태양 복사압, 고차 중력장 (MVP 이후)
-   - 예: `orbit.propagate(days=30, model="j2+drag")`
-8. **결과 메타데이터**
-   - 결과 객체는 사용한 모델, 적분기, 허용오차, 주요 가정을 함께 보관
-9. **설명과 시각화**
-   - `.explain()`: 사용한 공식, 가정, 중간값을 단계별로 출력
-   - `.plot()`: 2D 궤도 그림 (matplotlib)
+1. **The object API is the official entry point**
+   - Documentation, README and tutorial examples are all written with the object API
+   - Example: `ISS.orbit.transfer_to(GEO).plot()`
+2. **A functional core inside**
+   - Actual computation is implemented only in pure functions in `urania.core`
+   - Object methods only call core functions (one implementation, in one place)
+   - Core functions must also work with plain numbers (SI) → for checking against textbook examples
+3. **Immutable objects**
+   - All major objects are immutable, e.g. `dataclass(frozen=True)`
+   - `orbit.propagate(...)` returns a new object without changing the original
+4. **Units: SI internally, conversion only at the boundary**
+   - Internal computation uses only m, kg, s, K, W
+   - Input: values with units (choose astropy.units or pint and record why) are converted; plain numbers are taken as SI
+   - Output: SI by default, converted on request
+5. **Time: always TDB seconds internally (seconds elapsed since an epoch)**
+   - UTC/TAI conversion comes after the MVP, but time is encapsulated in one type so it can be added later
+6. **Environment factors are injected as arguments**
+   - The library provides the computational framework; the user supplies environment data (radiation, solar flux, etc.)
+   - Three forms are accepted: constant / `f(position, t)` function / `Environment` object
+   - Internally a constant is wrapped as "a function that always returns the same value", so there is one form
+   - The MVP does not implement environment models themselves, only this injection interface
+7. **Selectable fidelity levels**
+   - 0: two-body / 1: +J2 / 2: +atmospheric drag (MVP scope)
+   - 3: +lunar/solar perturbations / 4: +solar radiation pressure, high-order gravity (after the MVP)
+   - Example: `orbit.propagate(days=30, model="j2+drag")`
+8. **Result metadata**
+   - Result objects keep the model, integrator, tolerances and key assumptions used
+9. **Explanation and visualization**
+   - `.explain()`: prints the formulas, assumptions and intermediate values step by step
+   - `.plot()`: 2D orbit plot (matplotlib)
 
-## 3. MVP 범위
+## 3. MVP scope
 
-### 포함
-- **객체**
-  - `Body`: 질량, 반지름, μ, J2, 대기 모델 연결점
-  - `Orbit`: 궤도 요소 ↔ 위치·속도(상태벡터) 변환
-  - `Transfer`: 기동 결과 (총 Δv, 소요 시간, 단계별 기동 목록)
-  - `TLEOrbit`: TLE 기반 궤도 (아래 TLE 항목 참고)
-- **프리셋**
-  - 천체: 태양, 지구, 달, 화성 (여유 있으면 나머지 행성)
-  - 궤도: `LEO`, `ISS`, `GEO`, `SSO` 등 대표 궤도
-- **궤도 전파**: 충실도 0~2단계
-  - 대기 항력은 지수 대기 모델 정도로 단순하게
-  - 적분: `scipy.integrate.solve_ivp` 기반 적응형(예: DOP853)
-- **기동 계산**: 호만 전이, 이중타원 전이, 궤도면 변경
-- **TLE 지원**
-  - `sgp4` 패키지를 감싸는 수준
-  - TLE 궤도는 SGP4로만 전파하고 자체 전파기와 섞지 않는다 (`TLEOrbit` 별도 객체)
-  - 필요 시 상태벡터를 꺼내 `Orbit`으로 명시적으로 변환하는 경로는 제공
-- **설명/시각화**: `.explain()`, `.plot()`
-- **단위 처리, 결과 메타데이터, 환경 주입 인터페이스**
+### Included
+- **Objects**
+  - `Body`: mass, radius, μ, J2, hook for an atmosphere model
+  - `Orbit`: orbital elements ↔ position/velocity (state vector) conversion
+  - `Transfer`: maneuver result (total Δv, duration, list of burns)
+  - `TLEOrbit`: TLE-based orbit (see TLE below)
+- **Presets**
+  - Bodies: Sun, Earth, Moon, Mars (the other planets if time allows)
+  - Orbits: representative orbits such as `LEO`, `ISS`, `GEO`, `SSO`
+- **Orbit propagation**: fidelity levels 0 to 2
+  - Keep drag simple, around an exponential atmosphere model
+  - Integration: adaptive, based on `scipy.integrate.solve_ivp` (e.g. DOP853)
+- **Maneuvers**: Hohmann transfer, bi-elliptic transfer, plane change
+- **TLE support**
+  - A thin wrapper around the `sgp4` package
+  - TLE orbits are propagated only with SGP4 and never mixed with the in-house propagator (separate `TLEOrbit` object)
+  - Provide an explicit path that extracts a state vector and converts it to an `Orbit` when needed
+- **Explanation/visualization**: `.explain()`, `.plot()`
+- **Unit handling, result metadata, environment injection interface**
 
-### 제외 (다음 버전)
-- 온도, 방사선 등 환경 모델 구현
-- 달·태양 섭동, JPL 천체력(DE440) 연동
-- 행성 간 전이, 발사 창(포크찹) 계산
-- 3D 시각화, 애니메이션
-- UTC/TAI/TDB 변환
+### Excluded (next version)
+- Environment models such as temperature and radiation
+- Lunar/solar perturbations, JPL ephemeris (DE440) integration
+- Interplanetary transfers, launch window (porkchop) calculations
+- 3D visualization, animation
+- UTC/TAI/TDB conversion
 
-## 4. 검증
+## 4. Validation
 
-- 교과서 예제와 대조 (Curtis, Vallado 교재 풀이)
-- NASA GMAT 결과와 대조 (참조 데이터는 테스트 픽스처로 저장)
-- 실제 ISS TLE로 SGP4 예측 vs 자체 전파기 결과 비교 (예제 겸 테스트)
-- 목표: README에 "GMAT 대비 오차 ○○ 이내" 같은 수치를 근거와 함께 명시할 수 있을 것
-- 테스트 프레임워크: pytest
+- Compare with textbook examples (Curtis, Vallado worked solutions)
+- Compare with NASA GMAT results (reference data stored as test fixtures)
+- Compare SGP4 predictions with the in-house propagator using a real ISS TLE (doubles as an example and a test)
+- Goal: be able to state in the README a figure such as "within ○○ of GMAT", with evidence
+- Test framework: pytest
 
-## 5. 제안 모듈 구조
+## 5. Proposed module structure
 
 ```
 urania/
-  core/          # 순수 함수: 궤도 변환, 케플러 방정식, 기동 공식
-  bodies.py      # Body, 천체 프리셋
-  orbits.py      # Orbit, 궤도 프리셋
-  propagation/   # 충실도 단계별 힘 모델, 적분기
-  maneuvers.py   # Transfer, 기동 계산
-  tle.py         # TLEOrbit (sgp4 래퍼)
-  environment.py # 환경 주입 인터페이스
-  units.py       # 단위 변환 경계
-  time.py        # 시간 표현 (내부 TDB 초)
+  core/          # pure functions: orbit conversions, Kepler's equation, maneuver formulas
+  bodies.py      # Body, body presets
+  orbits.py      # Orbit, orbit presets
+  propagation/   # force models per fidelity level, integrators
+  maneuvers.py   # Transfer, maneuver calculations
+  tle.py         # TLEOrbit (sgp4 wrapper)
+  environment.py # environment injection interface
+  units.py       # unit conversion boundary
+  time.py        # time representation (internal TDB seconds)
   viz.py         # plot
-  explain.py     # explain 출력
+  explain.py     # explain output
 tests/
 examples/
 ```
 
-구조는 제안이며, 더 나은 배치가 있으면 근거와 함께 조정해도 됨.
+The structure is a proposal; adjust it with a reason if a better layout exists.
 
-## 6. 개발 순서 (권장)
+## 6. Development order (recommended)
 
-1. core: 상태벡터 ↔ 궤도 요소 변환, 케플러 방정식 해법 + 교과서 예제 테스트
-2. 단위·시간 경계 (`units.py`, `time.py`)
-3. `Body`, `Orbit` 객체와 프리셋
-4. 2체 전파 → J2 → 항력 순으로 전파기
-5. 기동 계산 (`Transfer`)
+1. core: state vector ↔ orbital elements, Kepler's equation solver + textbook example tests
+2. Unit and time boundary (`units.py`, `time.py`)
+3. `Body`, `Orbit` objects and presets
+4. Propagator: two-body → J2 → drag
+5. Maneuvers (`Transfer`)
 6. `.plot()`, `.explain()`
-7. TLE 래퍼
-8. GMAT·TLE 대조 테스트, README 예제
+7. TLE wrapper
+8. GMAT and TLE comparison tests, README examples
 
-## 7. 작업 방식 요청
+## 7. Working requests
 
-- 각 단계를 끝낼 때마다 테스트를 통과시키고 다음 단계로 진행
-- 설계 결정(단위 라이브러리 선택 등)은 짧은 근거와 함께 기록
-- 코드 변경 결과는 변경된 부분만 코드 블록으로 보여주기
+- Make the tests pass at the end of each step before moving on
+- Record design decisions (such as the unit library choice) with a short rationale
+- Show code changes as code blocks containing only the changed parts

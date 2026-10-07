@@ -10,7 +10,7 @@ DAY = 86400.0
 
 
 def test_from_vectors_matches_core():
-    """Vallado 예제 2-5 상태벡터를 단위 Quantity로 넣는다."""
+    """Vallado example 2-5 state vector given as Quantities."""
     o = Orbit.from_vectors(Earth, [6524.834, 6862.875, 6448.296] * u.km,
                            [4.901327, 5.533756, -1.976341] * u.km / u.s)
     assert o.a / 1e3 == pytest.approx(36127.343, abs=0.05)
@@ -41,11 +41,11 @@ def test_from_elements_hyperbola_and_parabola():
 
 
 @pytest.mark.parametrize("kwargs", [
-    {},                                  # 크기 없음
-    {"a": 7e6, "p": 7e6},                # 둘 다
-    {"a": 7e6, "ecc": 1.5},              # 쌍곡선인데 a > 0
-    {"a": -7e6, "ecc": 0.5},             # 타원인데 a < 0
-    {"a": 7e6, "ecc": 1.0},              # 포물선은 p로만
+    {},                                  # no size
+    {"a": 7e6, "p": 7e6},                # both
+    {"a": 7e6, "ecc": 1.5},              # hyperbola with a > 0
+    {"a": -7e6, "ecc": 0.5},             # ellipse with a < 0
+    {"a": 7e6, "ecc": 1.0},              # parabola needs p
 ])
 def test_from_elements_invalid(kwargs):
     with pytest.raises(ValueError):
@@ -57,7 +57,7 @@ def test_circular_and_altitudes():
     assert o.ecc == pytest.approx(0.0, abs=1e-12)
     assert o.periapsis_altitude == pytest.approx(400e3)
     assert o.apoapsis_altitude == pytest.approx(400e3)
-    # 원 궤도에서 ν는 승교점부터 잰 각도 (DECISIONS D2)
+    # On a circular orbit ν is measured from the node (DECISIONS D2)
     assert math.degrees(o.nu) == pytest.approx(45)
 
 
@@ -85,12 +85,12 @@ def test_epoch():
 def test_presets():
     assert LEO.periapsis_altitude == pytest.approx(500e3)
     assert math.degrees(ISS.inc) == pytest.approx(51.64)
-    # a = 6798.137 km → T = 2π√(a³/μ) = 5578.2 s (손계산)
+    # a = 6798.137 km → T = 2π√(a³/μ) = 5578.2 s (hand calculation)
     assert ISS.period / 60 == pytest.approx(92.97, abs=0.01)
-    # GEO 주기는 항성일
+    # The GEO period is one sidereal day
     assert GEO.period == pytest.approx(86164.09, abs=0.1)
     assert GEO.inc == 0.0
-    # SSO는 하루 약 0.9856° 동쪽으로 회전
+    # An SSO plane turns east by about 0.9856° per day
     assert math.degrees(SSO.raan_rate) * DAY == pytest.approx(0.98563, abs=1e-4)
 
 

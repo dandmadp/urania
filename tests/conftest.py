@@ -1,4 +1,4 @@
 import matplotlib
 
-# 테스트에서는 창을 띄우지 않는다
+# Never open windows during tests
 matplotlib.use("Agg")

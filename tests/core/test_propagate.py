@@ -11,7 +11,7 @@ MU = 398600.4418 * KM**3
 
 
 def test_vallado_example_2_4():
-    """Vallado 예제 2-4: 40분 케플러 전파."""
+    """Vallado example 2-4: 40-minute Kepler propagation."""
     r0 = np.array([1131.340, -2282.343, 6672.423]) * KM
     v0 = np.array([-5.64305, 4.30333, 2.42879]) * KM
     r, v = kepler_propagate(r0, v0, 40 * 60, MU)
@@ -35,7 +35,7 @@ def _twobody(t, r, v):
 @pytest.mark.parametrize("v0", [[0, 7546.0, 0], [0, 9000.0, 1500.0], [0, 11500.0, 0]],
                          ids=["circular", "elliptic", "hyperbolic"])
 def test_cowell_matches_kepler(v0):
-    """수치 적분(DOP853)과 해석해가 일치해야 한다."""
+    """Numerical integration (DOP853) must match the analytic solution."""
     r0 = np.array([7000e3, 0.0, 0.0])
     v0 = np.array(v0)
     duration = 10 * 86400 if np.linalg.norm(v0) < 11000 else 86400
@@ -54,7 +54,7 @@ def test_cowell_backward():
 
 
 def test_cowell_terminal_event_appends_state():
-    r0, v0 = np.array([7000e3, 0, 0]), np.array([0, 2000.0, 0])  # 거의 낙하
+    r0, v0 = np.array([7000e3, 0, 0]), np.array([0, 2000.0, 0])  # nearly falling straight down
 
     def below_6500km(t, y):
         return np.linalg.norm(y[:3]) - 6500e3
@@ -78,9 +78,9 @@ def test_kepler_states_matches_single():
 
 
 def test_kepler_parabolic_matches_cowell():
-    """포물선 해석해(Barker)와 수치 적분 비교."""
+    """Parabolic analytic solution (Barker) versus numerical integration."""
     r0 = np.array([7000e3, 0.0, 0.0])
-    v0 = np.array([0.0, math.sqrt(2 * MU / 7000e3), 0.0])  # 탈출 속도 = 포물선
+    v0 = np.array([0.0, math.sqrt(2 * MU / 7000e3), 0.0])  # escape speed = parabola
     r_ref, _ = kepler_propagate(r0, v0, 20000.0, MU)
     res = cowell(r0, v0, 20000.0, _twobody)
     assert np.linalg.norm(res.r[-1] - r_ref) < 1e-2

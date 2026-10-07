@@ -6,13 +6,13 @@ import pytest
 from urania.core import Elements, coe_to_rv, elements_to_rv, rv_to_coe
 
 KM = 1e3
-MU_EARTH_CURTIS = 398600 * KM**3      # Curtis 교재 값
-MU_EARTH_VALLADO = 398600.4418 * KM**3  # Vallado 교재 값
+MU_EARTH_CURTIS = 398600 * KM**3      # Curtis textbook value
+MU_EARTH_VALLADO = 398600.4418 * KM**3  # Vallado textbook value
 deg = math.radians
 
 
 def test_curtis_example_4_3_rv_to_coe():
-    """Curtis, Orbital Mechanics for Engineering Students, 예제 4.3."""
+    """Curtis, Orbital Mechanics for Engineering Students, example 4.3."""
     r = np.array([-6045, -3490, 2500]) * KM
     v = np.array([-3.457, 6.618, 2.533]) * KM
     el = rv_to_coe(r, v, MU_EARTH_CURTIS)
@@ -28,18 +28,18 @@ def test_curtis_example_4_3_rv_to_coe():
 
 
 def test_curtis_example_4_7_coe_to_rv():
-    """Curtis 예제 4.7: 쌍곡선 궤도 요소 → 상태벡터."""
+    """Curtis example 4.7: hyperbolic orbital elements → state vector."""
     h = 80000 * KM**2
     p = h**2 / MU_EARTH_CURTIS
     r, v = coe_to_rv(p, 1.4, deg(30), deg(40), deg(60), deg(30), MU_EARTH_CURTIS)
 
-    # 교재 값은 유효숫자 4자리로 반올림됨
+    # Textbook values are rounded to 4 significant digits
     np.testing.assert_allclose(r / KM, [-4040, 4815, 3629], rtol=5e-4)
     np.testing.assert_allclose(v / KM, [-10.39, -4.772, 1.744], rtol=5e-4)
 
 
 def test_vallado_example_2_5_rv_to_coe():
-    """Vallado, Fundamentals of Astrodynamics and Applications, 예제 2-5."""
+    """Vallado, Fundamentals of Astrodynamics and Applications, example 2-5."""
     r = np.array([6524.834, 6862.875, 6448.296]) * KM
     v = np.array([4.901327, 5.533756, -1.976341]) * KM
     el = rv_to_coe(r, v, MU_EARTH_VALLADO)
@@ -68,7 +68,7 @@ def _random_elements(rng, ecc):
 
 @pytest.mark.parametrize("ecc", [0.001, 0.3, 0.9, 1.0, 1.5, 4.0])
 def test_roundtrip_rv(ecc):
-    """r, v → 요소 → r, v 가 원래 값으로 돌아와야 한다."""
+    """r, v → elements → r, v must return the original values."""
     rng = np.random.default_rng(42)
     for _ in range(50):
         r0, v0 = elements_to_rv(_random_elements(rng, ecc), MU_EARTH_VALLADO)
@@ -84,7 +84,7 @@ def test_roundtrip_rv(ecc):
          "retro-equatorial", "circular-inclined"],
 )
 def test_singular_orbits_roundtrip(inc, ecc):
-    """원·적도 궤도는 규약(raan=0, argp=0)에 따라 일관되게 왕복해야 한다."""
+    """Circular and equatorial orbits must round-trip consistently under the conventions (raan=0, argp=0)."""
     p = 7000 * KM
     r0, v0 = coe_to_rv(p, ecc, inc, deg(30) if inc not in (0.0, math.pi) else 0.0,
                        deg(45) if ecc else 0.0, deg(100), MU_EARTH_VALLADO)
@@ -99,7 +99,7 @@ def test_singular_orbits_roundtrip(inc, ecc):
 
 
 def test_unreachable_true_anomaly_raises():
-    # e = 2 쌍곡선의 점근선은 ν = 120°, 그 밖은 도달 불가
+    # The asymptote of an e = 2 hyperbola is at ν = 120°; beyond it is unreachable
     with pytest.raises(ValueError):
         coe_to_rv(7000 * KM, 2.0, 0.1, 0, 0, deg(150), MU_EARTH_VALLADO)
 

@@ -1,6 +1,6 @@
-"""임펄스 기동 공식. 모든 입력·출력은 SI. Curtis 6장, Vallado 6장.
+"""Impulsive maneuver formulas. SI units. Curtis ch. 6, Vallado ch. 6.
 
-원 궤도 사이의 전이를 다룬다. Δv는 부호 있는 접선 방향 성분이다 (+는 진행 방향 가속).
+Transfers between circular orbits. Δv values are signed tangential components (+ is prograde).
 """
 
 import math
@@ -12,10 +12,10 @@ from .twobody import vis_viva as _vis_viva
 
 
 def hohmann(r1: float, r2: float, mu: float) -> tuple[float, float, float]:
-    """원 궤도 r1 → r2 호만 전이 (Vallado 알고리즘 36).
+    """Hohmann transfer between circular orbits r1 → r2 (Vallado algorithm 36).
 
     Returns:
-        (dv1, dv2, tof): 두 기동의 접선 Δv [m/s] (내려갈 때는 음수), 전이 시간 [s]
+        (dv1, dv2, tof): tangential Δv of both burns [m/s] (negative when descending), transfer time [s]
     """
     a_t = 0.5 * (r1 + r2)
     dv1 = _vis_viva(r1, a_t, mu) - math.sqrt(mu / r1)
@@ -25,13 +25,13 @@ def hohmann(r1: float, r2: float, mu: float) -> tuple[float, float, float]:
 
 
 def bielliptic(r1: float, rb: float, r2: float, mu: float) -> tuple[float, float, float, float]:
-    """원 궤도 r1 → rb(중간 원점) → r2 이중타원 전이 (Vallado 알고리즘 37).
+    """Bi-elliptic transfer r1 → rb (intermediate apoapsis) → r2 between circular orbits (Vallado algorithm 37).
 
     Returns:
-        (dv1, dv2, dv3, tof): 세 기동의 접선 Δv [m/s], 전이 시간 [s]
+        (dv1, dv2, dv3, tof): tangential Δv of the three burns [m/s], transfer time [s]
     """
     if rb < max(r1, r2):
-        raise ValueError(f"중간 원점 rb={rb}는 r1, r2보다 커야 합니다")
+        raise ValueError(f"Intermediate apoapsis rb={rb} must be larger than r1 and r2")
     a1 = 0.5 * (r1 + rb)
     a2 = 0.5 * (rb + r2)
     dv1 = _vis_viva(r1, a1, mu) - math.sqrt(mu / r1)
@@ -42,25 +42,25 @@ def bielliptic(r1: float, rb: float, r2: float, mu: float) -> tuple[float, float
 
 
 def plane_change_dv(v: float, dtheta: float) -> float:
-    """속도 크기를 유지한 채 궤도면을 dtheta [rad] 돌리는 Δv = 2v sin(Δθ/2)."""
+    """Δv to rotate the orbit plane by dtheta [rad] at constant speed: 2v sin(Δθ/2)."""
     return 2.0 * v * math.sin(0.5 * abs(dtheta))
 
 
 def combined_dv(v1: float, v2: float, dtheta: float) -> float:
-    """속도 크기 변경과 궤도면 변경을 한 번에 하는 Δv (코사인 법칙)."""
+    """Δv for a combined speed change and plane change (law of cosines)."""
     return math.sqrt(max(v1 * v1 + v2 * v2 - 2.0 * v1 * v2 * math.cos(dtheta), 0.0))
 
 
 def hohmann_plane_change(r1: float, r2: float, dtheta: float, mu: float,
                          split: float) -> tuple[float, float, float]:
-    """궤도면 변경을 포함한 호만 전이.
+    """Hohmann transfer with a plane change.
 
     Args:
-        dtheta: 두 궤도면 사이 각도 [rad]
-        split: 첫 기동에서 수행하는 궤도면 변경 비율 (0~1). 나머지는 두 번째 기동에서.
+        dtheta: angle between the two orbit planes [rad]
+        split: fraction of the plane change done at the first burn (0 to 1); the rest at the second.
 
     Returns:
-        (dv1, dv2, tof): 두 기동의 Δv 크기 [m/s], 전이 시간 [s]
+        (dv1, dv2, tof): Δv magnitudes of both burns [m/s], transfer time [s]
     """
     a_t = 0.5 * (r1 + r2)
     dv1 = combined_dv(math.sqrt(mu / r1), _vis_viva(r1, a_t, mu), split * dtheta)
@@ -69,7 +69,7 @@ def hohmann_plane_change(r1: float, r2: float, dtheta: float, mu: float,
 
 
 def optimal_plane_split(r1: float, r2: float, dtheta: float, mu: float) -> float:
-    """총 Δv가 최소가 되는 궤도면 변경 분배 비율 (0~1)."""
+    """Plane change split (0 to 1) that minimizes the total Δv."""
     if dtheta == 0.0:
         return 0.0
     res = minimize_scalar(lambda s: sum(hohmann_plane_change(r1, r2, dtheta, mu, s)[:2]),
@@ -78,7 +78,7 @@ def optimal_plane_split(r1: float, r2: float, dtheta: float, mu: float) -> float
 
 
 def rotate(vec, axis, angle: float) -> np.ndarray:
-    """벡터를 단위 축 axis 기준으로 angle [rad] 회전 (로드리게스 공식)."""
+    """Rotate a vector by angle [rad] about the unit axis (Rodrigues' formula)."""
     vec = np.asarray(vec, dtype=float)
     k = np.asarray(axis, dtype=float)
     c, s = math.cos(angle), math.sin(angle)

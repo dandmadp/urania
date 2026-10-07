@@ -19,14 +19,14 @@ def close_figures():
 # ---------------------------------------------------------------- explain
 
 def test_explanation_rendering():
-    ex = Explanation("제목")
-    ex.step("단계", "a = 1", "b = 2")
-    ex.assumptions.append("가정 하나")
-    ex.warnings.append("경고 하나")
+    ex = Explanation("Title")
+    ex.step("Step", "a = 1", "b = 2")
+    ex.assumptions.append("one assumption")
+    ex.warnings.append("one warning")
     text = str(ex)
-    assert text.startswith("제목")
-    assert "1. 단계" in text and "   a = 1" in text
-    assert "- 가정 하나" in text and "! 경고 하나" in text
+    assert text.startswith("Title")
+    assert "1. Step" in text and "   a = 1" in text
+    assert "- one assumption" in text and "! one warning" in text
     assert repr(ex) == text
 
 
@@ -37,17 +37,17 @@ def test_orbit_explain_values():
     assert "h = r × v" in text
     assert f"{o.ecc:.6f}" in text                    # 0.832853
     assert f"{math.degrees(o.inc):.4f}°" in text     # 87.8691°
-    assert "주기 T" in text
-    assert "WGS 84" in text                          # μ 출처
+    assert "period T" in text
+    assert "WGS 84" in text                          # source of μ
 
 
 def test_orbit_explain_special_conventions():
     text = str(GEO.explain())
-    assert "원 궤도" in text and "적도 궤도" in text
+    assert "circular orbit" in text and "equatorial orbit" in text
 
 
 def test_transfer_explain_matches_burns():
-    """공식으로 다시 계산한 Δv가 상태벡터 결과와 같으면 경고가 없다."""
+    """No warning when the Δv recomputed from formulas matches the state-vector result."""
     for tr in (LEO.transfer_to(GEO), ISS.transfer_to(GEO),
                LEO.transfer_to(Orbit.circular(Earth, 20 * LEO.a - Earth.radius, inc=20 * u.deg),
                                "bielliptic", rb=40 * LEO.a),
@@ -57,42 +57,42 @@ def test_transfer_explain_matches_burns():
         assert ex.warnings == [], ex.warnings
         text = str(ex)
         assert f"{tr.total_dv / 1e3:.4f} km/s" in text
-        assert "임펄스 기동" in text
+        assert "impulsive burns" in text
 
 
 def test_hohmann_explain_shows_formulas():
     text = str(ISS.transfer_to(GEO).explain())
     assert "a_t = (r₁ + r₂)/2" in text
-    assert "cos α" in text                 # 궤도면 변경 결합 공식
+    assert "cos α" in text                 # combined plane change formula
     assert "tof = π√(a_t³/μ)" in text
 
 
 def test_transfer_explain_none():
-    assert "기동이 필요 없다" in str(LEO.transfer_to(LEO).explain())
+    assert "no burn is needed" in str(LEO.transfer_to(LEO).explain())
 
 
 def test_trajectory_explain_twobody():
     ex = ISS.propagate(days=1).explain()
     text = str(ex)
-    assert "케플러" in text
+    assert "Kepler" in text
     assert "a_J2" not in text
     assert ex.warnings == []
 
 
 def test_trajectory_explain_j2_warns_osculating():
-    """J2가 있으면 접촉 장반경 진동 경고와 1바퀴 평균 변화를 보여준다 (DECISIONS 메모)."""
+    """With J2, warn about the osculating semi-major axis oscillation and show the orbit-averaged change."""
     ex = ISS.propagate(days=3, model="j2+drag", **ISS_DRAG).explain()
     text = str(ex)
-    assert "a_J2" in text and "a_항력" in text
+    assert "a_J2" in text and "a_drag" in text
     assert "rtol = 1e-12" in text
-    assert "1바퀴 평균" in text
-    assert any("출렁" in w for w in ex.warnings)
-    assert "지수 대기" in text
+    assert "mean a over the first orbit" in text
+    assert any("swings" in w for w in ex.warnings)
+    assert "exponential atmosphere" in text
 
 
 def test_trajectory_explain_terminated():
     ex = Orbit.circular(Earth, 130e3).propagate(days=5, model="drag", area=1, mass=1).explain()
-    assert any("표면" in w for w in ex.warnings)
+    assert any("surface" in w for w in ex.warnings)
 
 
 # ---------------------------------------------------------------- plot
@@ -120,7 +120,7 @@ def test_transfer_plot_burn_markers():
     ax = tr.plot()
     burns = [line for line in ax.get_lines() if line.get_marker() == "*"]
     assert len(burns) == 3
-    assert len(ax.texts) == 3                # Δv 주석
+    assert len(ax.texts) == 3                # Δv annotations
     assert "Bielliptic" in ax.get_title()
 
 

@@ -45,5 +45,5 @@ def test_wrong_unit_rejected():
 def test_class_instead_of_instance_rejected():
     from urania.environment import ExponentialAtmosphere
 
-    with pytest.raises(TypeError, match="인스턴스"):
+    with pytest.raises(TypeError, match="instance"):
         as_environment(ExponentialAtmosphere, units.DENSITY)

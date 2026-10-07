@@ -1,4 +1,4 @@
-"""순수 함수 코어. 모든 입력·출력은 SI 단위 숫자."""
+"""Pure-function core. All inputs and outputs are plain SI numbers."""
 
 from .elements import Elements, coe_to_rv, elements_to_rv, rv_to_coe
 from .kepler import (

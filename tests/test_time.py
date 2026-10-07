@@ -22,7 +22,7 @@ def test_jd_roundtrip():
 
 
 def test_tdb_calendar_has_no_leap_seconds():
-    # 2016-12-31에 UTC 윤초가 있었지만 TDB 달력에서는 하루가 정확히 86400초
+    # UTC had a leap second on 2016-12-31, but a TDB calendar day is exactly 86400 s
     a = Epoch.from_iso("2016-12-31T00:00:00")
     b = Epoch.from_iso("2017-01-01T00:00:00")
     assert b - a == 86400.0
@@ -52,7 +52,7 @@ def test_astropy_roundtrip():
 
 
 def test_from_astropy_converts_scale():
-    """UTC 입력은 astropy가 TDB로 변환한다 (2026년 TDB - UTC ≈ 69.184 s)."""
+    """astropy converts UTC input to TDB (TDB - UTC ≈ 69.184 s in 2026)."""
     utc = Time("2026-01-01T00:00:00", scale="utc")
     t = Epoch.from_astropy(utc)
     expected = Epoch.from_iso("2026-01-01T00:00:00")

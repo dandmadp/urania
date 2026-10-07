@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "urania"
 version = "0.0.1"
-description = "계산하고, 보여주고, 설명하는 우주역학 라이브러리"
+description = "An astrodynamics library that computes, shows and explains"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

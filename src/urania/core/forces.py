@@ -1,4 +1,4 @@
-"""섭동 모델: 가속도와 대기 밀도. 모든 입력·출력은 SI, 관성 좌표계."""
+"""Perturbation models: accelerations and atmospheric density. SI units, inertial frame."""
 
 import bisect
 import math
@@ -7,15 +7,15 @@ import numpy as np
 
 
 def accel_twobody(r: np.ndarray, mu: float) -> np.ndarray:
-    """중심천체 질점 중력 a = -μ r / |r|³."""
+    """Point-mass gravity of the central body: a = -μ r / |r|³."""
     r_norm = np.sqrt(r @ r)
     return -mu * r / r_norm**3
 
 
 def accel_j2(r: np.ndarray, mu: float, R: float, J2: float) -> np.ndarray:
-    """J2 편평도 섭동 가속도 (Curtis 식 12.30, Vallado 식 8-30).
+    """J2 oblateness acceleration (Curtis eq. 12.30, Vallado eq. 8-30).
 
-    천체 자전축이 관성 z축과 같다고 가정한다.
+    Assumes the body's spin axis is the inertial z axis.
     """
     x, y, z = r
     r2 = r @ r
@@ -27,21 +27,21 @@ def accel_j2(r: np.ndarray, mu: float, R: float, J2: float) -> np.ndarray:
 
 def accel_drag(r: np.ndarray, v: np.ndarray, rho: float, ballistic: float,
                rotation_rate: float) -> np.ndarray:
-    """대기 항력 가속도 a = -½ ρ (C_D A / m) |v_rel| v_rel (Vallado 식 8-28).
+    """Atmospheric drag acceleration a = -½ ρ (C_D A / m) |v_rel| v_rel (Vallado eq. 8-28).
 
     Args:
-        rho: 대기 밀도 [kg/m³]
+        rho: atmospheric density [kg/m³]
         ballistic: C_D·A/m [m²/kg]
-        rotation_rate: 천체 자전 각속도 [rad/s]. 대기는 z축 기준으로 함께 강체 자전한다고 가정.
+        rotation_rate: body rotation rate [rad/s]. The atmosphere co-rotates rigidly about z.
     """
     v_rel = v - rotation_rate * np.array([-r[1], r[0], 0.0])  # v - ω×r
     return -0.5 * rho * ballistic * np.sqrt(v_rel @ v_rel) * v_rel
 
 
-# ---------------------------------------------------------------- 대기 밀도
-# 지수 대기 모델 (Vallado 4판 표 8-4). 고도 구간마다 ρ = ρ₀ exp(-(h - h₀)/H).
-# 정적·평균 태양활동 기준의 근사이며, 실제 밀도는 태양활동에 따라 몇 배씩 변한다.
-# (기준 고도 h₀ [km], 기준 밀도 ρ₀ [kg/m³], 척도 높이 H [km])
+# ---------------------------------------------------------------- atmospheric density
+# Exponential atmosphere (Vallado 4th ed. table 8-4): ρ = ρ₀ exp(-(h - h₀)/H) per altitude band.
+# A static model for mean solar activity; real density varies several-fold with solar activity.
+# (base altitude h₀ [km], base density ρ₀ [kg/m³], scale height H [km])
 VALLADO_TABLE = (
     (0, 1.225, 7.249),
     (25, 3.899e-2, 6.349),
@@ -76,7 +76,7 @@ _BASE_ALTS = [row[0] * 1e3 for row in VALLADO_TABLE]
 
 
 def exponential_density(altitude: float) -> float:
-    """고도 [m] → 대기 밀도 [kg/m³]. 1000 km 이상은 마지막 구간을 연장한다."""
+    """Altitude [m] → atmospheric density [kg/m³]. Above 1000 km the last band is extended."""
     if altitude < 0.0:
         altitude = 0.0
     i = bisect.bisect_right(_BASE_ALTS, altitude) - 1

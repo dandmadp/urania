@@ -1,13 +1,13 @@
-"""환경 주입 인터페이스.
+"""Environment injection interface.
 
-라이브러리는 계산의 틀만 책임지고, 환경 데이터(대기 밀도 등)는 사용자가 넣는다.
-다음 세 형태를 모두 받아 내부에서는 `Environment` 하나로 다룬다.
+The library provides the computational framework; environment data (atmospheric density, ...)
+comes from the user. All three forms below are accepted and handled internally as one `Environment`:
 
-- 상수: 숫자 또는 astropy Quantity → 항상 같은 값을 돌려주는 `Constant`
-- 함수: f(r, t) → `Function`
-- `Environment` 객체: 그대로 사용
+- constant: a number or astropy Quantity → `Constant`, which always returns the same value
+- function: f(r, t) → `Function`
+- `Environment` object: used as is
 
-r은 관성 좌표계 위치 [m] (numpy 배열), t는 J2000 기준 TDB 초다.
+r is the inertial position [m] (numpy array), t is TDB seconds since J2000.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from .core.forces import exponential_density
 
 
 class Environment(ABC):
-    """위치·시간에 따라 값을 주는 환경 모델. 반환값은 SI 숫자."""
+    """Environment model giving a value as a function of position and time. Returns an SI number."""
 
     description: str = ""
 
@@ -31,24 +31,24 @@ class Environment(ABC):
 
 
 class Constant(Environment):
-    """항상 같은 값을 주는 환경."""
+    """Environment that always returns the same value."""
 
     def __init__(self, value: float, description: str = ""):
         self.value = value
-        self.description = description or f"상수 {value:g}"
+        self.description = description or f"constant {value:g}"
 
     def __call__(self, r, t: float) -> float:
         return self.value
 
 
 class Function(Environment):
-    """사용자 함수 f(r, t)를 감싼 환경. 함수가 Quantity를 돌려주면 SI로 변환한다."""
+    """Wraps a user function f(r, t). A returned Quantity is converted to SI."""
 
     def __init__(self, func, si_unit: u.UnitBase, description: str = ""):
         self.func = func
         self.si_unit = si_unit
         name = getattr(func, "__name__", repr(func))
-        self.description = description or f"사용자 함수 {name}(r, t)"
+        self.description = description or f"user function {name}(r, t)"
 
     def __call__(self, r, t: float) -> float:
         value = self.func(r, t)
@@ -58,23 +58,23 @@ class Function(Environment):
 
 
 def as_environment(value, si_unit: u.UnitBase) -> Environment:
-    """상수·함수·Environment 중 어느 형태든 Environment로 만든다."""
+    """Turn a constant, function or Environment into an Environment."""
     if isinstance(value, Environment):
         return value
     if isinstance(value, type):
-        raise TypeError(f"{value.__name__} 클래스가 아니라 인스턴스를 넘기세요 "
-                        f"(예: {value.__name__}(...))")
+        raise TypeError(f"Pass an instance, not the class {value.__name__} "
+                        f"(e.g. {value.__name__}(...))")
     if callable(value):
         return Function(value, si_unit)
     return Constant(units.to_si(value, si_unit))
 
 
-# ---------------------------------------------------------------- 대기 밀도 모델
+# ---------------------------------------------------------------- atmospheric density models
 
 class ExponentialAtmosphere(Environment):
-    """Vallado 표 8-4 지수 대기 모델. 고도는 구형 천체 기준 |r| - R."""
+    """Exponential atmosphere of Vallado table 8-4. Altitude is spherical: |r| - R."""
 
-    description = "지수 대기 모델 (Vallado 표 8-4, 구형 지구 고도)"
+    description = "exponential atmosphere (Vallado table 8-4, spherical-Earth altitude)"
 
     def __init__(self, radius: float):
         self.radius = radius

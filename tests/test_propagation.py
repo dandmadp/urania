@@ -51,7 +51,7 @@ def test_numeric_twobody_matches_analytic():
 
 
 def test_j2_raan_drift_matches_secular_rate():
-    """J2 수치 전파의 승교점 변화가 장기 변화율 공식과 1% 이내로 일치."""
+    """The node shift from J2 numerical propagation matches the secular rate formula within 1%."""
     days = 10
     tr = ISS.propagate(days=days, model="j2")
     d_raan = (tr.final.raan - ISS.raan + math.pi) % (2 * math.pi) - math.pi
@@ -61,9 +61,9 @@ def test_j2_raan_drift_matches_secular_rate():
 
 
 def test_drag_decay_matches_analytic():
-    """자전 없는 천체 + 일정 밀도에서 원 궤도 감쇠율 da/dt = -ρ B √(μa).
+    """Circular orbit decay da/dt = -ρ B √(μa) for a non-rotating body with constant density.
 
-    가우스 행성 방정식 da/dt = 2a²v·a_T/μ 에 원 궤도 항력 a_T = -½ρBv² 를 넣은 결과.
+    From Gauss's planetary equation da/dt = 2a²v·a_T/μ with circular-orbit drag a_T = -½ρBv².
     """
     body = dataclasses.replace(Earth, rotation_rate=0.0)
     o = Orbit.circular(body, 400e3)
@@ -75,7 +75,7 @@ def test_drag_decay_matches_analytic():
 
 
 def test_density_injection_forms_agree():
-    """상수·Quantity·함수·Environment 객체 주입 결과가 같아야 한다."""
+    """Injecting a constant, Quantity, function or Environment object must give the same result."""
     rho = 3e-12
 
     class ConstRho(Environment):
@@ -98,7 +98,7 @@ def test_density_injection_forms_agree():
 def test_default_atmosphere_decays_iss():
     tr = ISS.propagate(days=2, model="j2+drag", **ISS_DRAG)
     assert tr.final.a < ISS.a
-    assert "지수 대기" in " ".join(tr.info.assumptions)
+    assert "exponential atmosphere" in " ".join(tr.info.assumptions)
     assert tr.info.terminated is None
 
 
@@ -133,7 +133,7 @@ def test_trajectory_immutable():
 
 
 def test_days_accepts_quantity():
-    """days=1*u.day 가 86400배 되지 않아야 한다 (회귀 테스트)."""
+    """days=1*u.day must not be multiplied by 86400 again (regression test)."""
     assert ISS.propagate(days=1 * u.day).final.epoch - ISS.epoch == pytest.approx(DAY)
     assert ISS.propagate(days=12 * u.h).final.epoch - ISS.epoch == pytest.approx(DAY / 2)
 
@@ -146,7 +146,7 @@ def test_zero_duration(model):
 
 @pytest.mark.parametrize("days", [0.1, -0.1])
 def test_analytic_and_numeric_both_stop_at_surface(days):
-    """근지점이 지구 안인 궤도: 해석해도 수치 적분처럼 표면에서 멈춘다."""
+    """Orbit with perigee inside the Earth: the analytic solution stops at the surface like integration does."""
     sub = Orbit.from_elements(Earth, a=6000e3, ecc=0.2, nu=math.radians(180))
     a = sub.propagate(days=days)
     b = sub.propagate(days=days, method="DOP853")

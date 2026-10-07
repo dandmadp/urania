@@ -1,9 +1,9 @@
-"""궤도 전파: 충실도 모델 선택, 결과(Trajectory)와 메타데이터.
+"""Orbit propagation: fidelity model selection, results (Trajectory) and metadata.
 
-충실도 단계 (SPEC 2.7):
-    0 "twobody"   2체
+Fidelity levels (SPEC 2.7):
+    0 "twobody"   two-body
     1 "j2"        + J2
-    2 "j2+drag"   + 대기 항력
+    2 "j2+drag"   + atmospheric drag
 """
 
 from __future__ import annotations
@@ -36,18 +36,18 @@ DEFAULT_ATOL = 1e-8
 
 
 def parse_model(model) -> frozenset[str]:
-    """모델 지정("j2+drag" 또는 충실도 정수)을 섭동 항 집합으로 바꾼다. 2체는 항상 포함."""
+    """Turn a model spec ("j2+drag" or a fidelity integer) into a set of terms. Two-body is always included."""
     if isinstance(model, int):
         if model not in FIDELITY_MODELS:
-            raise NotImplementedError(f"충실도 {model}단계는 아직 지원하지 않습니다 (0~2)")
+            raise NotImplementedError(f"Fidelity level {model} is not supported yet (0 to 2)")
         model = FIDELITY_MODELS[model]
     terms = {t.strip().lower() for t in model.split("+")}
     future = terms & _FUTURE_TERMS
     if future:
-        raise NotImplementedError(f"{sorted(future)} 섭동은 MVP 이후에 지원합니다")
+        raise NotImplementedError(f"{sorted(future)} perturbations will be supported after the MVP")
     unknown = terms - _SUPPORTED_TERMS
     if unknown:
-        raise ValueError(f"알 수 없는 모델 항: {sorted(unknown)} (가능: {sorted(_SUPPORTED_TERMS)})")
+        raise ValueError(f"Unknown model terms: {sorted(unknown)} (available: {sorted(_SUPPORTED_TERMS)})")
     return frozenset(terms | {"twobody"})
 
 
@@ -57,14 +57,14 @@ def model_name(terms: frozenset[str]) -> str:
 
 @dataclass(frozen=True)
 class PropagationInfo:
-    """전파 결과 메타데이터: 어떤 모델·적분기·가정으로 계산했는지."""
+    """Propagation metadata: which model, integrator and assumptions produced the result."""
 
     model: str
     integrator: str
     rtol: float | None
     atol: float | None
     assumptions: tuple[str, ...]
-    terminated: str | None = None   # 조기 종료 사유 (예: "재진입")
+    terminated: str | None = None   # reason for stopping early (e.g. reentry)
     nfev: int | None = None
 
 
@@ -76,13 +76,13 @@ def _readonly(a: np.ndarray) -> np.ndarray:
 
 @dataclass(frozen=True, eq=False)
 class Trajectory:
-    """전파 결과. 시작 시각 기준 경과 시간별 상태벡터와 메타데이터를 담는다."""
+    """Propagation result: state vectors versus time since the start epoch, plus metadata."""
 
     body: Body
-    epoch: Epoch            # 시작 시각
-    t: np.ndarray           # 시작 기준 경과 시간 [s], 길이 N
-    r: np.ndarray           # 위치 [m], N×3
-    v: np.ndarray           # 속도 [m/s], N×3
+    epoch: Epoch            # start epoch
+    t: np.ndarray           # time since start [s], length N
+    r: np.ndarray           # positions [m], N×3
+    v: np.ndarray           # velocities [m/s], N×3
     info: PropagationInfo
 
     def __post_init__(self):
@@ -93,59 +93,59 @@ class Trajectory:
         return len(self.t)
 
     def orbit_at(self, i: int) -> Orbit:
-        """i번째 샘플의 접촉 궤도(osculating orbit)."""
+        """Osculating orbit at sample i."""
         from .orbits import Orbit
 
         return Orbit(self.body, self.r[i], self.v[i], self.epoch + float(self.t[i]))
 
     @property
     def final(self) -> Orbit:
-        """마지막 시점의 궤도."""
+        """Orbit at the last sample."""
         return self.orbit_at(-1)
 
     @property
     def altitude(self) -> np.ndarray:
-        """구형 천체 기준 고도 [m]."""
+        """Altitude above a spherical body [m]."""
         return np.linalg.norm(self.r, axis=1) - self.body.radius
 
     def explain(self):
-        """운동 방정식, 적분기, 결과 변화, 해석상 주의점을 보여준다."""
+        """Show the equations of motion, integrator, changes in the result and interpretation caveats."""
         from .explain import explain_trajectory
 
         return explain_trajectory(self)
 
     def plot(self, ax=None, kind: str = "orbit"):
-        """kind="orbit": 시작 궤도면에 투영한 경로, "altitude": 시간별 고도."""
+        """kind="orbit": path projected on the initial orbit plane; "altitude": altitude versus time."""
         from .viz import plot_trajectory
 
         return plot_trajectory(self, ax, kind)
 
 
 def resolve_duration(duration, days) -> float:
-    """duration(초 또는 시간 Quantity)과 days(일, 숫자 또는 Quantity) 중 하나를 초로 바꾼다."""
+    """Convert duration (seconds or time Quantity) or days (number or Quantity) to seconds."""
     if (duration is None) == (days is None):
-        raise ValueError("duration과 days 중 정확히 하나를 지정하세요")
+        raise ValueError("Specify exactly one of duration and days")
     if days is not None:
         return units.to_si(days, u.day) * SECONDS_PER_DAY
     return units.to_si(duration, units.TIME)
 
 
 def _default_n_points(orbit: Orbit, duration: float) -> int:
-    """궤도 1바퀴에 100점, 최소 101점, 최대 200001점."""
+    """100 points per orbit, at least 101 and at most 200001."""
     if orbit.ecc >= 1.0:
         return 1001
     n = math.ceil(abs(duration) / orbit.period * 100) + 1
     return min(max(n, 101), 200001)
 
 
-_SURFACE = "천체 표면 도달"
+_SURFACE = "reached the body surface"
 
 
 def _truncate_at_surface(orbit: Orbit, t, r, v):
-    """해석해 샘플에서 처음 표면 아래로 내려가는 구간을 찾아 그 시점에서 자른다.
+    """Cut analytic samples at the first descent below the surface.
 
-    수치 적분의 표면 도달 이벤트와 같은 동작을 해석해에도 맞추기 위함이다.
-    샘플 간격(1바퀴 100점)보다 짧게 스치는 관통은 놓칠 수 있다.
+    Makes the analytic solution behave like the surface event of numerical integration.
+    A grazing pass shorter than the sample spacing (100 points per orbit) can be missed.
     """
     R = orbit.body.radius
     alt = np.linalg.norm(r, axis=1) - R
@@ -168,9 +168,9 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
               area=None, mass=None, density=None, method: str = "auto",
               rtol: float = DEFAULT_RTOL, atol: float = DEFAULT_ATOL,
               n_points: int | None = None) -> Trajectory:
-    """궤도를 duration 만큼 전파한다. `Orbit.propagate`의 구현.
+    """Propagate an orbit for duration. Implementation of `Orbit.propagate`.
 
-    method="auto"면 2체는 해석해(케플러), 그 외는 DOP853 수치 적분을 쓴다.
+    With method="auto", two-body uses the analytic (Kepler) solution; anything else uses DOP853.
     """
     body = orbit.body
     duration = units.to_si(duration, units.TIME)
@@ -178,32 +178,32 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
     n = n_points or _default_n_points(orbit, duration)
     t_eval = np.linspace(0.0, duration, n)
 
-    assumptions = ["중심천체 질점 중력", "관성 좌표계 축 고정 (세차·장동 무시)"]
+    assumptions = ["point-mass gravity of the central body", "fixed inertial axes (precession and nutation ignored)"]
 
-    # 2체 해석해
+    # two-body analytic solution
     if terms == {"twobody"} and method in ("auto", "kepler"):
         r, v = _prop.kepler_states(orbit.r, orbit.v, t_eval, body.mu)
         t, r, v, hit = _truncate_at_surface(orbit, t_eval, r, v)
-        info = PropagationInfo(model="twobody", integrator="kepler (해석해)",
+        info = PropagationInfo(model="twobody", integrator="kepler (analytic)",
                                rtol=None, atol=None, assumptions=tuple(assumptions),
                                terminated=_SURFACE if hit else None)
         return Trajectory(body, orbit.epoch, t, r, v, info)
 
     if method == "kepler":
-        raise ValueError("해석해(kepler)는 2체 모델에서만 쓸 수 있습니다")
+        raise ValueError("The analytic method (kepler) is only available for the two-body model")
     integrator = "DOP853" if method == "auto" else method
 
     mu, R, J2, omega = body.mu, body.radius, body.J2, body.rotation_rate
     use_j2 = "j2" in terms
     if use_j2:
         if J2 == 0.0:
-            raise ValueError(f"{body.name}의 J2가 0입니다")
-        assumptions.append("J2 편평도만 포함 (고차 중력장 무시), 자전축 = 관성 z축")
+            raise ValueError(f"J2 of {body.name} is zero")
+        assumptions.append("J2 oblateness only (higher-order gravity ignored), spin axis = inertial z")
 
     use_drag = "drag" in terms
     if use_drag:
         if area is None or mass is None:
-            raise ValueError("항력 모델에는 area(단면적)와 mass(질량)가 필요합니다")
+            raise ValueError("The drag model needs area and mass")
         area_si = units.to_si(area, units.AREA)
         mass_si = units.to_si(mass, units.MASS)
         ballistic = cd * area_si / mass_si
@@ -212,11 +212,11 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
         elif body.atmosphere is not None:
             rho = body.atmosphere
         else:
-            raise ValueError(f"{body.name}에 대기 모델이 없습니다. density를 지정하세요")
+            raise ValueError(f"{body.name} has no atmosphere model; pass density")
         assumptions += [
-            f"대기 밀도: {rho.description}",
-            "대기는 천체와 함께 강체 자전",
-            f"항력 계수·단면적 일정 (Cd={cd:g}, A={area_si:g} m², m={mass_si:g} kg)",
+            f"atmospheric density: {rho.description}",
+            "atmosphere co-rotates rigidly with the body",
+            f"constant drag coefficient and area (Cd={cd:g}, A={area_si:g} m², m={mass_si:g} kg)",
         ]
         t0 = orbit.epoch.tdb_seconds
 

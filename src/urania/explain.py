@@ -1,7 +1,7 @@
-"""explain(): 사용한 공식, 대입한 중간값, 가정, 경고를 단계별 텍스트로 보여준다.
+"""explain(): the formulas used, intermediate values, assumptions and warnings as step-by-step text.
 
-중간값은 core 함수로 계산한다 (공식 구현은 core 한 곳에만 둔다).
-결과 객체에 저장된 값과 다시 계산한 값이 어긋나면 경고로 표시한다.
+Intermediate values are computed with core functions (formulas live only in core).
+If a recomputed value disagrees with the value stored in the result object, a warning is added.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 DAY = 86400.0
 
 
-# ---------------------------------------------------------------- 출력 형식
+# ---------------------------------------------------------------- formatting
 
 def _km(x: float) -> str:
     return f"{x / 1e3:,.3f} km"
@@ -42,7 +42,7 @@ def _vec(x, scale: float, unit: str) -> str:
 
 
 class Explanation:
-    """단계별 설명. print()하거나 REPL·Jupyter에서 그대로 보면 된다."""
+    """Step-by-step explanation. print() it, or view it directly in a REPL or Jupyter."""
 
     def __init__(self, title: str):
         self.title = title
@@ -59,10 +59,10 @@ class Explanation:
             out.append(f"{i}. {heading}")
             out.extend(f"   {line}" for line in lines)
         if self.assumptions:
-            out.append("가정")
+            out.append("Assumptions")
             out.extend(f"   - {a}" for a in self.assumptions)
         if self.warnings:
-            out.append("주의")
+            out.append("Warnings")
             out.extend(f"   ! {w}" for w in self.warnings)
         return "\n".join(out)
 
@@ -72,82 +72,90 @@ class Explanation:
 # ---------------------------------------------------------------- Orbit
 
 def explain_orbit(o: Orbit) -> Explanation:
-    """상태벡터에서 궤도 요소를 구하는 과정 (Curtis 알고리즘 4.2)."""
+    """How the orbital elements follow from the state vector (Curtis algorithm 4.2)."""
     b = o.body
     mu = b.mu
     r_norm, v_norm = np.linalg.norm(o.r), np.linalg.norm(o.v)
-    ex = Explanation(f"궤도 요소 계산: {b.name} 주위, {o.epoch.iso[:19]} TDB")
+    ex = Explanation(f"Orbital elements: orbit around {b.name}, {o.epoch.iso[:19]} TDB")
 
-    ex.step("입력 상태벡터",
+    ex.step("Input state vector",
             f"r = {_vec(o.r, 1e3, 'km')},  |r| = {_km(r_norm)}",
             f"v = {_vec(o.v, 1e3, 'km/s')},  |v| = {_kms(v_norm)}",
-            f"μ = {mu:.6e} m³/s²  ({b.source or '출처 미기재'})")
-    ex.step("비각운동량과 반통경",
+            f"μ = {mu:.6e} m³/s²  ({b.source or 'source not given'})")
+    ex.step("Specific angular momentum and semi-latus rectum",
             "h = r × v",
             f"|h| = {o.h / 1e6:,.3f} km²/s",
             f"p = h²/μ = {_km(o.p)}")
-    ex.step("이심률",
+    ex.step("Eccentricity",
             "e = ((v² − μ/r) r − (r·v) v) / μ",
             f"|e| = {o.ecc:.6f}")
-    ex.step("에너지와 장반경 (활력 방정식)",
+    ex.step("Energy and semi-major axis (vis-viva)",
             "ε = v²/2 − μ/r,  a = −μ/(2ε)",
             f"ε = {o.energy / 1e6:.4f} km²/s²",
-            f"a = {_km(o.a)}" + ("  (쌍곡선이라 음수)" if o.a < 0 else ""))
-    ex.step("경사각", "i = arccos(h_z / |h|)", f"i = {_deg(o.inc)}")
-    ex.step("승교점 적경", "n = ẑ × h,  Ω = atan2(n_y, n_x)", f"Ω = {_deg(o.raan)}")
-    ex.step("근지점 인수", "ω = n에서 e까지의 각 (궤도면 안, 운동 방향)", f"ω = {_deg(o.argp)}")
-    ex.step("진근점이각", "ν = e에서 r까지의 각 (궤도면 안, 운동 방향)", f"ν = {_deg(o.nu)}")
+            f"a = {_km(o.a)}" + ("  (negative for a hyperbola)" if o.a < 0 else ""))
+    ex.step("Inclination", "i = arccos(h_z / |h|)", f"i = {_deg(o.inc)}")
+    ex.step("Right ascension of the ascending node", "n = ẑ × h,  Ω = atan2(n_y, n_x)",
+            f"Ω = {_deg(o.raan)}")
+    ex.step("Argument of periapsis", "ω = angle from n to e (in the orbit plane, direction of motion)",
+            f"ω = {_deg(o.argp)}")
+    ex.step("True anomaly", "ν = angle from e to r (in the orbit plane, direction of motion)",
+            f"ν = {_deg(o.nu)}")
 
-    derived = [f"근점 반지름 r_p = p/(1+e) = {_km(o.r_periapsis)}  (고도 {_km(o.periapsis_altitude)})"]
+    derived = [f"periapsis radius r_p = p/(1+e) = {_km(o.r_periapsis)}  "
+               f"(altitude {_km(o.periapsis_altitude)})"]
     if o.ecc < 1.0:
-        derived.append(f"원점 반지름 r_a = p/(1−e) = {_km(o.r_apoapsis)}  (고도 {_km(o.apoapsis_altitude)})")
-        derived.append(f"주기 T = 2π√(a³/μ) = {o.period:,.1f} s = {o.period / 60:.2f} 분")
+        derived.append(f"apoapsis radius r_a = p/(1−e) = {_km(o.r_apoapsis)}  "
+                       f"(altitude {_km(o.apoapsis_altitude)})")
+        derived.append(f"period T = 2π√(a³/μ) = {o.period:,.1f} s = {o.period / 60:.2f} min")
         if b.J2:
-            derived.append(f"J2 승교점 변화 dΩ/dt = −(3/2) n J2 (R/p)² cos i = "
-                           f"{math.degrees(o.raan_rate) * DAY:.4f} °/일")
-    ex.step("파생 물리량", *derived)
+            derived.append(f"J2 nodal rate dΩ/dt = −(3/2) n J2 (R/p)² cos i = "
+                           f"{math.degrees(o.raan_rate) * DAY:.4f} °/day")
+    ex.step("Derived quantities", *derived)
 
     if o.ecc < 1e-11:
-        ex.assumptions.append("원 궤도: 근지점이 정의되지 않아 ω = 0, ν는 승교점부터 잼")
+        ex.assumptions.append("circular orbit: periapsis is undefined, so ω = 0 and ν is measured "
+                              "from the node")
     if o.inc < 1e-11 or abs(o.inc - math.pi) < 1e-11:
-        ex.assumptions.append("적도 궤도: 승교점이 정의되지 않아 Ω = 0, 기준축은 관성 x축")
-    ex.assumptions.append("2체 궤도 요소 (그 순간의 접촉 궤도, osculating)")
+        ex.assumptions.append("equatorial orbit: the node is undefined, so Ω = 0 and the reference "
+                              "axis is inertial x")
+    ex.assumptions.append("two-body elements (the osculating orbit at this instant)")
     return ex
 
 
 # ---------------------------------------------------------------- Trajectory
 
 def explain_trajectory(tr: Trajectory) -> Explanation:
-    """전파에 쓴 운동 방정식, 적분기, 결과 변화와 해석상 주의점."""
+    """Equations of motion, integrator, changes in the result and interpretation caveats."""
     info = tr.info
     terms = info.model.split("+")
-    ex = Explanation(f"궤도 전파: {info.model}, {tr.t[-1] / DAY:.3f}일")
+    ex = Explanation(f"Orbit propagation: {info.model}, {tr.t[-1] / DAY:.3f} days")
 
     sgp4 = info.model == "sgp4"
     if sgp4:
-        ex.step("모델",
-                "SGP4: TLE 평균 요소에 대한 해석적 섭동 이론 (Hoots & Roehrich 1980)",
-                "포함 섭동: J2·J3·J4 띠 조화항, B* 기반 대기 항력, "
-                "주기 225분 이상이면 SDP4(달·태양, 공명)")
+        ex.step("Model",
+                "SGP4: analytic perturbation theory for TLE mean elements (Hoots & Roehrich 1980)",
+                "includes J2, J3, J4 zonal terms and B*-based drag; "
+                "SDP4 (Moon, Sun, resonance) for periods of 225 min or more")
     else:
-        eq = ["r̈ = " + " + ".join({"twobody": "a_2체", "j2": "a_J2", "drag": "a_항력"}[t]
+        eq = ["r̈ = " + " + ".join({"twobody": "a_2body", "j2": "a_J2", "drag": "a_drag"}[t]
                                    for t in terms),
-              "a_2체 = −μ r / |r|³"]
+              "a_2body = −μ r / |r|³"]
         if "j2" in terms:
             eq.append("a_J2 = −(3/2) J2 μ R² / r⁵ · [x(1 − 5z²/r²), y(1 − 5z²/r²), z(3 − 5z²/r²)]")
         if "drag" in terms:
-            eq.append("a_항력 = −½ ρ (C_D A/m) |v_rel| v_rel,  v_rel = v − ω × r")
-        ex.step("운동 방정식", *eq)
+            eq.append("a_drag = −½ ρ (C_D A/m) |v_rel| v_rel,  v_rel = v − ω × r")
+        ex.step("Equations of motion", *eq)
 
     if sgp4:
-        ex.step("풀이", f"{info.integrator}: 각 시각에서 해석식을 직접 계산", f"출력 {len(tr)}점")
+        ex.step("Solution", f"{info.integrator}: analytic formulas evaluated at each time",
+                f"{len(tr)} output points")
     elif info.rtol is None:
-        ex.step("풀이", f"{info.integrator}: 케플러 방정식을 각 시각에서 직접 풂",
-                f"출력 {len(tr)}점")
+        ex.step("Solution", f"{info.integrator}: Kepler's equation solved at each time",
+                f"{len(tr)} output points")
     else:
-        ex.step("수치 적분", info.integrator,
-                f"허용오차 rtol = {info.rtol:g}, atol = {info.atol:g} (m, m/s)",
-                f"가속도 함수 호출 {info.nfev:,}회, 출력 {len(tr)}점")
+        ex.step("Numerical integration", info.integrator,
+                f"tolerances rtol = {info.rtol:g}, atol = {info.atol:g} (m, m/s)",
+                f"{info.nfev:,} acceleration evaluations, {len(tr)} output points")
 
     first, last = tr.orbit_at(0), tr.final
     lines = []
@@ -155,8 +163,8 @@ def explain_trajectory(tr: Trajectory) -> Explanation:
                          ("i", lambda o: o.inc, _deg), ("Ω", lambda o: o.raan, _deg)):
         lines.append(f"{name}: {fmt(f(first))} → {fmt(f(last))}")
     alt = tr.altitude
-    lines.append(f"고도: {_km(alt[0])} → {_km(alt[-1])}")
-    ex.step("시작 → 끝 (접촉 궤도 요소)", *lines)
+    lines.append(f"altitude: {_km(alt[0])} → {_km(alt[-1])}")
+    ex.step("Start → end (osculating elements)", *lines)
 
     if ("j2" in terms or sgp4) and first.ecc < 1.0:
         a = _tb.semi_major_axis(tr.r, tr.v, tr.body.mu)
@@ -164,19 +172,20 @@ def explain_trajectory(tr: Trajectory) -> Explanation:
         head = a[tr.t <= tr.t[0] + T]
         tail = a[tr.t >= tr.t[-1] - T]
         if tr.t[-1] - tr.t[0] >= 2 * T:
-            ex.step("장반경의 단주기 진동 (J2)",
-                    f"접촉 장반경 범위: {_km(a.min())} ~ {_km(a.max())} "
-                    f"(폭 {_km(a.max() - a.min())})",
-                    f"첫 1바퀴 평균 a = {_km(head.mean())}",
-                    f"마지막 1바퀴 평균 a = {_km(tail.mean())}",
-                    f"평균 변화 = {_km(tail.mean() - head.mean())}")
+            ex.step("Short-period oscillation of the semi-major axis (J2)",
+                    f"osculating a range: {_km(a.min())} to {_km(a.max())} "
+                    f"(spread {_km(a.max() - a.min())})",
+                    f"mean a over the first orbit = {_km(head.mean())}",
+                    f"mean a over the last orbit = {_km(tail.mean())}",
+                    f"change in mean = {_km(tail.mean() - head.mean())}")
         ex.warnings.append(
-            "J2가 있으면 접촉 장반경이 한 바퀴 안에서 크게 출렁인다. "
-            "시작·끝 값의 차이를 궤도 감쇠량으로 읽지 말고, 1바퀴 평균 변화를 보라.")
+            "With J2 the osculating semi-major axis swings strongly within each orbit. "
+            "Do not read the start-to-end difference as orbital decay; use the change in the "
+            "orbit-averaged value.")
 
     ex.assumptions.extend(info.assumptions)
     if info.terminated:
-        ex.warnings.append(f"{info.terminated}: {tr.t[-1] / DAY:.4f}일에 전파를 멈췄다.")
+        ex.warnings.append(f"{info.terminated}: propagation stopped at {tr.t[-1] / DAY:.4f} days.")
     return ex
 
 
@@ -193,35 +202,36 @@ def _angle(a: np.ndarray, b: np.ndarray) -> float:
 
 def _burn_lines(v_before: float, v_after: float, alpha: float, stored: float,
                 ex: Explanation, label: str) -> list[str]:
-    """한 기동의 Δv 공식과 값. stored(상태벡터로 계산한 값)와 비교한다."""
+    """Δv formula and value for one burn, checked against the state-vector result (stored)."""
     if alpha > 1e-12:
         dv = _man.combined_dv(v_before, v_after, alpha)
-        lines = [f"궤도면 변경 α = {_deg(alpha)} 동시 수행",
+        lines = [f"combined with plane change α = {_deg(alpha)}",
                  f"Δv = √(v₁² + v₂² − 2 v₁ v₂ cos α) = {_kms(dv)}"]
     else:
         dv = abs(v_after - v_before)
         lines = [f"Δv = |v₂ − v₁| = {_kms(dv)}"]
     if abs(dv - stored) > 1e-6 * max(dv, 1.0):
-        ex.warnings.append(f"{label}: 공식 값 {_kms(dv)}와 상태벡터 계산 값 {_kms(stored)}이 다르다.")
+        ex.warnings.append(f"{label}: formula value {_kms(dv)} differs from the state-vector "
+                           f"value {_kms(stored)}.")
     return lines
 
 
 def explain_transfer(t: Transfer) -> Explanation:
-    """전이의 공식, 중간 속도, 기동별 Δv, 전이 시간."""
+    """Transfer formulas, intermediate speeds, Δv per burn and transfer time."""
     mu = t.initial.body.mu
     r1, r2 = t.initial.a, t.target.a
-    names = {"hohmann": "호만 전이", "bielliptic": "이중타원 전이",
-             "plane_change": "궤도면 변경", "none": "전이 없음"}
+    names = {"hohmann": "Hohmann transfer", "bielliptic": "Bi-elliptic transfer",
+             "plane_change": "Plane change", "none": "No transfer"}
     ex = Explanation(f"{names[t.kind]}: r₁ = {_km(r1)} → r₂ = {_km(r2)}")
 
     start = [f"μ = {mu:.6e} m³/s²",
-             f"두 궤도면 사이 각 Δθ = arccos(ĥ₁·ĥ₂) = {_deg(t.plane_change)}"]
+             f"angle between the orbit planes Δθ = arccos(ĥ₁·ĥ₂) = {_deg(t.plane_change)}"]
     if t.coast > 0:
-        start.append(f"노드까지 대기 {t.coast:,.1f} s ({t.coast / 60:.2f} 분)")
-    ex.step("출발 조건", *start)
+        start.append(f"coast to the node: {t.coast:,.1f} s ({t.coast / 60:.2f} min)")
+    ex.step("Initial conditions", *start)
 
     if t.kind == "none":
-        ex.step("결과", "이미 같은 궤도라 기동이 필요 없다.")
+        ex.step("Result", "Already on the same orbit; no burn is needed.")
         ex.assumptions.extend(t.assumptions)
         return ex
 
@@ -229,43 +239,43 @@ def explain_transfer(t: Transfer) -> Explanation:
     if t.kind == "plane_change":
         v = _tb.circular_velocity(r1, mu)
         dv = _man.plane_change_dv(v, t.plane_change)
-        ex.step("궤도면 변경 (노드에서)",
+        ex.step("Plane change (at the node)",
                 f"v = √(μ/r) = {_kms(v)}",
                 f"Δv = 2 v sin(Δθ/2) = {_kms(dv)}")
         if abs(dv - burns[0].magnitude) > 1e-6 * dv:
-            ex.warnings.append("공식 값과 상태벡터 계산 값이 다르다.")
+            ex.warnings.append("The formula value differs from the state-vector value.")
     elif t.kind == "hohmann":
         a_t = 0.5 * (r1 + r2)
         alpha1 = _angle(_normal(t.initial), _normal(t.orbits[0]))
         alpha2 = t.plane_change - alpha1
         v_c1, v_p = _tb.circular_velocity(r1, mu), _tb.vis_viva(r1, a_t, mu)
         v_a, v_c2 = _tb.vis_viva(r2, a_t, mu), _tb.circular_velocity(r2, mu)
-        ex.step("전이 타원", f"a_t = (r₁ + r₂)/2 = {_km(a_t)}")
-        ex.step("1차 기동 (r₁)",
-                f"v₁ = √(μ/r₁) = {_kms(v_c1)}  (출발 원 궤도)",
-                f"v₂ = √(μ(2/r₁ − 1/a_t)) = {_kms(v_p)}  (전이 타원)",
-                *_burn_lines(v_c1, v_p, alpha1, burns[0].magnitude, ex, "1차 기동"))
-        ex.step("2차 기동 (r₂)",
-                f"v₁ = √(μ(2/r₂ − 1/a_t)) = {_kms(v_a)}  (전이 타원)",
-                f"v₂ = √(μ/r₂) = {_kms(v_c2)}  (목표 원 궤도)",
-                *_burn_lines(v_a, v_c2, alpha2, burns[1].magnitude, ex, "2차 기동"))
-        ex.step("전이 시간", f"tof = π√(a_t³/μ) = {t.tof:,.1f} s = {t.tof / 3600:.4f} h")
+        ex.step("Transfer ellipse", f"a_t = (r₁ + r₂)/2 = {_km(a_t)}")
+        ex.step("Burn 1 (r₁)",
+                f"v₁ = √(μ/r₁) = {_kms(v_c1)}  (initial circular orbit)",
+                f"v₂ = √(μ(2/r₁ − 1/a_t)) = {_kms(v_p)}  (transfer ellipse)",
+                *_burn_lines(v_c1, v_p, alpha1, burns[0].magnitude, ex, "Burn 1"))
+        ex.step("Burn 2 (r₂)",
+                f"v₁ = √(μ(2/r₂ − 1/a_t)) = {_kms(v_a)}  (transfer ellipse)",
+                f"v₂ = √(μ/r₂) = {_kms(v_c2)}  (target circular orbit)",
+                *_burn_lines(v_a, v_c2, alpha2, burns[1].magnitude, ex, "Burn 2"))
+        ex.step("Transfer time", f"tof = π√(a_t³/μ) = {t.tof:,.1f} s = {t.tof / 3600:.4f} h")
     elif t.kind == "bielliptic":
         rb = np.linalg.norm(burns[1].r)
         a1, a2 = 0.5 * (r1 + rb), 0.5 * (rb + r2)
-        ex.step("전이 타원 두 개",
-                f"중간 원점 r_b = {_km(rb)}",
+        ex.step("Two transfer ellipses",
+                f"intermediate apoapsis r_b = {_km(rb)}",
                 f"a₁ = (r₁ + r_b)/2 = {_km(a1)},  a₂ = (r_b + r₂)/2 = {_km(a2)}")
         v = [(_tb.circular_velocity(r1, mu), _tb.vis_viva(r1, a1, mu), 0.0, "r₁"),
              (_tb.vis_viva(rb, a1, mu), _tb.vis_viva(rb, a2, mu), t.plane_change, "r_b"),
              (_tb.vis_viva(r2, a2, mu), _tb.circular_velocity(r2, mu), 0.0, "r₂")]
         for k, (vb, va, alpha, where) in enumerate(v):
-            ex.step(f"{k + 1}차 기동 ({where})",
-                    f"v₁ = {_kms(vb)},  v₂ = {_kms(va)}  (활력 방정식 √(μ(2/r − 1/a)))",
-                    *_burn_lines(vb, va, alpha, burns[k].magnitude, ex, f"{k + 1}차 기동"))
-        ex.step("전이 시간", f"tof = π(√(a₁³/μ) + √(a₂³/μ)) = {t.tof / 3600:.4f} h")
+            ex.step(f"Burn {k + 1} ({where})",
+                    f"v₁ = {_kms(vb)},  v₂ = {_kms(va)}  (vis-viva √(μ(2/r − 1/a)))",
+                    *_burn_lines(vb, va, alpha, burns[k].magnitude, ex, f"Burn {k + 1}"))
+        ex.step("Transfer time", f"tof = π(√(a₁³/μ) + √(a₂³/μ)) = {t.tof / 3600:.4f} h")
 
-    ex.step("합계", " + ".join(_kms(b.magnitude) for b in burns) + f" = {_kms(t.total_dv)}")
+    ex.step("Total", " + ".join(_kms(b.magnitude) for b in burns) + f" = {_kms(t.total_dv)}")
     ex.assumptions.extend(t.assumptions)
     return ex
 
@@ -273,30 +283,30 @@ def explain_transfer(t: Transfer) -> Explanation:
 # ---------------------------------------------------------------- TLE
 
 def explain_tle(tle: TLEOrbit) -> Explanation:
-    """TLE 필드 해석. 값은 SGP4 평균 요소라 접촉 궤도 요소와 다르다."""
+    """Decoded TLE fields. The values are SGP4 mean elements, not osculating elements."""
     from .tle import MU_WGS72, checksum
 
-    title = f"TLE: {tle.name or '이름 없음'} (NORAD {tle.satnum})"
+    title = f"TLE: {tle.name or 'unnamed'} (NORAD {tle.satnum})"
     ex = Explanation(title)
-    ex.step("원문", tle.line1, tle.line2,
-            f"체크섬: 1행 {checksum(tle.line1)}, 2행 {checksum(tle.line2)} (정상)")
+    ex.step("Raw lines", tle.line1, tle.line2,
+            f"checksums: line 1 {checksum(tle.line1)}, line 2 {checksum(tle.line2)} (valid)")
     epoch = tle.epoch
-    ex.step("기준 시각",
-            f"1행 19–32열 (연도 + 일수, UTC) → {epoch.to_astropy().utc.iso} UTC",
+    ex.step("Epoch",
+            f"line 1 columns 19–32 (year + day of year, UTC) → {epoch.to_astropy().utc.iso} UTC",
             f"= {epoch.iso} TDB")
     n = tle.mean_motion
     a = (MU_WGS72 / n**2) ** (1.0 / 3.0)
-    ex.step("평균 요소 (2행)",
-            f"경사각 i = {_deg(tle.inc)}",
-            f"승교점 적경 Ω = {_deg(tle.raan)}",
-            f"이심률 e = {tle.ecc:.7f}  (소수점 생략 표기)",
-            f"근지점 인수 ω = {_deg(tle.argp)}",
-            f"평균근점이각 M = {_deg(tle.M)}",
-            f"평균 운동 n = {tle.revs_per_day:.8f} rev/일",
-            f"→ 장반경 a ≈ (μ/n²)^(1/3) = {_km(a)}, 주기 {2 * math.pi / n / 60:.2f} 분")
-    ex.step("항력 항 (1행)", f"B* = {tle.bstar:.5e} (1/지구반지름)",
-            "SGP4 안에서만 쓰는 값이다. 실제 C_D·A/m와는 다르다.")
-    ex.assumptions.extend(("TLE 요소는 SGP4 전용 평균 요소다. 고전 궤도 요소로 직접 쓰지 말고 "
-                           "to_orbit()으로 상태벡터를 꺼내 쓴다.",
-                           "a는 Kozai 평균 운동과 WGS72 μ로 구한 근사값"))
+    ex.step("Mean elements (line 2)",
+            f"inclination i = {_deg(tle.inc)}",
+            f"right ascension of the ascending node Ω = {_deg(tle.raan)}",
+            f"eccentricity e = {tle.ecc:.7f}  (written without the decimal point)",
+            f"argument of perigee ω = {_deg(tle.argp)}",
+            f"mean anomaly M = {_deg(tle.M)}",
+            f"mean motion n = {tle.revs_per_day:.8f} rev/day",
+            f"→ semi-major axis a ≈ (μ/n²)^(1/3) = {_km(a)}, period {2 * math.pi / n / 60:.2f} min")
+    ex.step("Drag term (line 1)", f"B* = {tle.bstar:.5e} (1/Earth radii)",
+            "Used only inside SGP4; it is not the physical C_D·A/m.")
+    ex.assumptions.extend(("TLE elements are SGP4 mean elements. Do not use them as classical "
+                           "elements; extract a state vector with to_orbit().",
+                           "a is approximated from the Kozai mean motion and the WGS72 μ"))
     return ex

@@ -1,7 +1,7 @@
-"""궤도 전이: Transfer 결과 객체와 기동 계획.
+"""Orbit transfers: the Transfer result object and burn planning.
 
-원 궤도 사이의 호만·이중타원 전이와 궤도면 변경을 계산한다.
-각 기동은 실제 상태벡터에 Δv 벡터를 더하는 방식으로 만들고, 기동 사이는 2체 해석해로 잇는다.
+Computes Hohmann and bi-elliptic transfers and plane changes between circular orbits.
+Each burn adds a Δv vector to the actual state vector; burns are linked by the two-body analytic solution.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from .orbits import Orbit
     from .time import Epoch
 
-# 원 궤도로 간주하는 이심률 상한
+# Largest eccentricity treated as circular
 CIRCULAR_ECC_TOL = 1e-3
 
 
@@ -33,11 +33,11 @@ def _readonly(x) -> np.ndarray:
 
 @dataclass(frozen=True, eq=False)
 class Burn:
-    """임펄스 기동 한 번."""
+    """A single impulsive burn."""
 
     epoch: Epoch
-    r: np.ndarray        # 기동 위치 [m]
-    dv: np.ndarray       # Δv 벡터 [m/s], 관성 좌표계
+    r: np.ndarray        # burn position [m]
+    dv: np.ndarray       # Δv vector [m/s], inertial frame
     description: str
 
     def __post_init__(self):
@@ -46,61 +46,61 @@ class Burn:
 
     @property
     def magnitude(self) -> float:
-        """Δv 크기 [m/s]."""
+        """Δv magnitude [m/s]."""
         return float(np.linalg.norm(self.dv))
 
 
 @dataclass(frozen=True, eq=False)
 class Transfer:
-    """궤도 전이 결과: 기동 목록, 기동 직후 궤도들, 가정."""
+    """Transfer result: list of burns, orbits right after each burn, assumptions."""
 
     kind: str                       # "hohmann", "bielliptic", "plane_change"
     initial: Orbit
     target: Orbit
     burns: tuple[Burn, ...]
-    orbits: tuple[Orbit, ...]       # 각 기동 직후의 궤도 (마지막은 목표 궤도에 올라선 상태)
-    plane_change: float             # 전체 궤도면 변경 각도 [rad]
+    orbits: tuple[Orbit, ...]       # orbit right after each burn (the last one is on the target orbit)
+    plane_change: float             # total plane change angle [rad]
     assumptions: tuple[str, ...]
 
     @property
     def total_dv(self) -> float:
-        """총 Δv [m/s]."""
+        """Total Δv [m/s]."""
         return sum(b.magnitude for b in self.burns)
 
     @property
     def coast(self) -> float:
-        """첫 기동까지 기다리는 시간 [s] (노드 도달 대기)."""
+        """Wait before the first burn [s] (coasting to the node)."""
         if not self.burns:
             return 0.0
         return self.burns[0].epoch - self.initial.epoch
 
     @property
     def tof(self) -> float:
-        """첫 기동부터 마지막 기동까지 걸리는 시간 [s]."""
+        """Time from the first burn to the last [s]."""
         if not self.burns:
             return 0.0
         return self.burns[-1].epoch - self.burns[0].epoch
 
     @property
     def final(self) -> Orbit:
-        """전이를 마친 궤도."""
+        """Orbit after the transfer."""
         return self.orbits[-1] if self.orbits else self.initial
 
     def explain(self):
-        """전이 공식, 중간 속도, 기동별 Δv, 전이 시간을 단계별로 보여준다."""
+        """Show the transfer formulas, intermediate speeds, Δv per burn and transfer time step by step."""
         from .explain import explain_transfer
 
         return explain_transfer(self)
 
     def plot(self, ax=None):
-        """전이를 2D로 그린다. 각 궤도를 자기 궤도면에 펼쳐 그린다."""
+        """Plot the transfer in 2D, unfolding each orbit into its own plane."""
         from .viz import plot_transfer
 
         return plot_transfer(self, ax)
 
     def __repr__(self) -> str:
         return (f"Transfer({self.kind}, Δv={self.total_dv / 1e3:.4f} km/s, "
-                f"tof={self.tof / 3600:.3f} h, 기동 {len(self.burns)}회)")
+                f"tof={self.tof / 3600:.3f} h, {len(self.burns)} burns)")
 
 
 def _unit(x: np.ndarray) -> np.ndarray:
@@ -109,23 +109,23 @@ def _unit(x: np.ndarray) -> np.ndarray:
 
 def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
              plane_split="optimal") -> Transfer:
-    """원 궤도 initial → target 전이를 계산한다. `Orbit.transfer_to`의 구현.
+    """Compute a transfer between circular orbits initial → target. Implementation of `Orbit.transfer_to`.
 
     Args:
-        method: "hohmann" 또는 "bielliptic"
-        rb: 이중타원 전이의 중간 원점 반지름 (길이)
-        plane_split: 호만 전이에서 첫 기동이 맡을 궤도면 변경 비율 (0~1) 또는 "optimal".
-            이중타원 전이는 속도가 가장 느린 중간 원점에서 궤도면을 모두 바꾼다.
+        method: "hohmann" or "bielliptic"
+        rb: intermediate apoapsis radius of a bi-elliptic transfer (length)
+        plane_split: fraction of the plane change done by the first Hohmann burn (0 to 1) or "optimal".
+            A bi-elliptic transfer does the whole plane change at the slow intermediate apoapsis.
     """
     from .orbits import Orbit
 
     body = initial.body
     if target.body is not body:
-        raise ValueError(f"중심천체가 다릅니다: {body.name} → {target.body.name}")
-    for name, o in (("시작", initial), ("목표", target)):
+        raise ValueError(f"Central bodies differ: {body.name} → {target.body.name}")
+    for name, o in (("initial", initial), ("target", target)):
         if o.ecc > CIRCULAR_ECC_TOL:
-            raise ValueError(f"{name} 궤도가 원 궤도가 아닙니다 (e={o.ecc:.4g}). "
-                             f"MVP는 원 궤도 사이 전이만 지원합니다")
+            raise ValueError(f"The {name} orbit is not circular (e={o.ecc:.4g}). "
+                             f"The MVP supports transfers between circular orbits only")
     mu = body.mu
     r1, r2 = initial.a, target.a
     h1 = _unit(np.cross(initial.r, initial.v))
@@ -134,7 +134,7 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
     dtheta = math.atan2(np.linalg.norm(cross), h1 @ h2)
     coplanar = dtheta < 1e-9
 
-    # 첫 기동 위치: 같은 평면이면 지금 위치, 아니면 다음에 만나는 노드
+    # First burn: at the current position if coplanar, otherwise at the next node
     if coplanar:
         coast = 0.0
         node_axis = None
@@ -145,59 +145,59 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
 
     same_radius = abs(r1 - r2) < 1e-9 * r1
     assumptions = [
-        "임펄스 기동 (Δv가 순간적으로 적용됨)",
-        "기동 사이는 2체 궤도 (섭동 무시)",
-        "시작·목표 궤도는 원 궤도로 간주",
-        "목표 궤도 안의 위상(랑데부)은 맞추지 않음",
+        "impulsive burns (Δv applied instantaneously)",
+        "two-body motion between burns (perturbations ignored)",
+        "initial and target orbits treated as circular",
+        "phasing within the target orbit (rendezvous) is not matched",
     ]
     if not coplanar:
-        assumptions.append("궤도면 변경은 두 궤도면의 교선(노드)에서 수행")
+        assumptions.append("plane change performed at the line of nodes between the two planes")
 
     def tilt(fraction: float) -> np.ndarray:
-        """h1을 노드 축 기준으로 fraction·Δθ 만큼 h2 쪽으로 돌린 궤도면 법선."""
+        """Orbit normal h1 rotated about the node axis by fraction·Δθ toward h2."""
         if coplanar or fraction == 0.0:
             return h1
         if fraction == 1.0:
             return h2
         return _man.rotate(h1, node_axis, fraction * dtheta)
 
-    # 기동 계획: (다음 원점 반지름 또는 None=원형화, 기동 후 궤도면 법선, 설명)
+    # Burn plan: (next apoapsis radius or None = circularize, orbit normal after the burn, description)
     if same_radius:
         if coplanar:
             return Transfer("none", initial, target, (), (), 0.0, tuple(assumptions))
         kind = "plane_change"
-        plan = [(None, h2, "궤도면 변경")]
+        plan = [(None, h2, "plane change")]
     elif method == "hohmann":
         kind = "hohmann"
         if plane_split == "optimal":
             split = _man.optimal_plane_split(r1, r2, dtheta, mu)
             if not coplanar:
-                assumptions.append(f"궤도면 변경 분배는 총 Δv 최소화 (1차 {split:.3f})")
+                assumptions.append(f"plane change split minimizes total Δv (first burn {split:.3f})")
         else:
             split = float(plane_split)
             if not 0.0 <= split <= 1.0:
-                raise ValueError(f"plane_split은 0~1 이어야 합니다: {split}")
-        plan = [(r2, tilt(split), "1차: 전이 궤도 진입"),
-                (None, h2, "2차: 목표 궤도 원형화")]
+                raise ValueError(f"plane_split must be between 0 and 1: {split}")
+        plan = [(r2, tilt(split), "burn 1: enter transfer orbit"),
+                (None, h2, "burn 2: circularize on target orbit")]
         plane_parts = [split * dtheta, (1.0 - split) * dtheta]
     elif method == "bielliptic":
         if rb is None:
-            raise ValueError("이중타원 전이에는 중간 원점 반지름 rb가 필요합니다")
+            raise ValueError("A bi-elliptic transfer needs the intermediate apoapsis radius rb")
         rb = units.to_si(rb, units.LENGTH)
         if rb < max(r1, r2):
-            raise ValueError(f"rb={rb} m 는 시작·목표 궤도 반지름보다 커야 합니다")
+            raise ValueError(f"rb={rb} m must be larger than the initial and target radii")
         kind = "bielliptic"
-        plan = [(rb, h1, "1차: 첫 전이 타원 진입"),
-                (r2, h2, "2차: 중간 원점에서 둘째 전이 타원으로"),
-                (None, h2, "3차: 목표 궤도 원형화")]
+        plan = [(rb, h1, "burn 1: enter first transfer ellipse"),
+                (r2, h2, "burn 2: switch to second transfer ellipse at apoapsis"),
+                (None, h2, "burn 3: circularize on target orbit")]
         plane_parts = [0.0, dtheta, 0.0]
     else:
-        raise ValueError(f"알 수 없는 전이 방법: {method!r} (hohmann, bielliptic)")
+        raise ValueError(f"Unknown transfer method: {method!r} (hohmann, bielliptic)")
 
     if kind == "plane_change":
         plane_parts = [dtheta]
 
-    # 기동 실행: 상태벡터에 Δv를 더하고, 다음 기동까지 해석해로 전파
+    # Execute burns: add Δv to the state vector, then propagate analytically to the next burn
     epoch = initial.epoch + coast
     r, v = _prop.kepler_propagate(initial.r, initial.v, coast, mu)
     burns, orbits = [], []
@@ -210,7 +210,7 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
             speed = math.sqrt(mu * (2.0 / r_now - 2.0 / (r_now + r_next)))
         v_new = speed * direction
         if d_plane > 1e-12:
-            desc += f" + 궤도면 {math.degrees(d_plane):.2f}°"
+            desc += f" + plane {math.degrees(d_plane):.2f}°"
         burns.append(Burn(epoch, r, v_new - v, desc))
         orbit = Orbit(body, r, v_new, epoch)
         orbits.append(orbit)
