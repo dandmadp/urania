@@ -6,12 +6,11 @@ import math
 from dataclasses import dataclass, field
 from functools import cached_property
 
-import astropy.units as u
 import numpy as np
 
 from . import units
 from .bodies import Body, Earth
-from .constants import DAY, SSO_RAAN_RATE
+from .constants import SSO_RAAN_RATE
 from .core import elements as _el
 from .core import j2 as _j2
 from .core import kepler as _kepler
@@ -205,13 +204,9 @@ class Orbit:
 
         예: ``ISS.propagate(days=30, model="j2+drag", area=1500, mass=420000).final``
         """
-        from .propagation import propagate
+        from .propagation import propagate, resolve_duration
 
-        if (duration is None) == (days is None):
-            raise ValueError("duration과 days 중 정확히 하나를 지정하세요")
-        if days is not None:
-            duration = units.to_si(days, u.day) * DAY
-        return propagate(self, duration, model=model, **kwargs)
+        return propagate(self, resolve_duration(duration, days), model=model, **kwargs)
 
     # ---------------------------------------------------------- 기동
 

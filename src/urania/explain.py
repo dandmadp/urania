@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from .maneuvers import Transfer
     from .orbits import Orbit
     from .propagation import Trajectory
+    from .tle import TLEOrbit
 
 DAY = 86400.0
 
@@ -122,16 +123,25 @@ def explain_trajectory(tr: Trajectory) -> Explanation:
     terms = info.model.split("+")
     ex = Explanation(f"궤도 전파: {info.model}, {tr.t[-1] / DAY:.3f}일")
 
-    eq = ["r̈ = " + " + ".join({"twobody": "a_2체", "j2": "a_J2", "drag": "a_항력"}[t]
-                               for t in terms),
-          "a_2체 = −μ r / |r|³"]
-    if "j2" in terms:
-        eq.append("a_J2 = −(3/2) J2 μ R² / r⁵ · [x(1 − 5z²/r²), y(1 − 5z²/r²), z(3 − 5z²/r²)]")
-    if "drag" in terms:
-        eq.append("a_항력 = −½ ρ (C_D A/m) |v_rel| v_rel,  v_rel = v − ω × r")
-    ex.step("운동 방정식", *eq)
+    sgp4 = info.model == "sgp4"
+    if sgp4:
+        ex.step("모델",
+                "SGP4: TLE 평균 요소에 대한 해석적 섭동 이론 (Hoots & Roehrich 1980)",
+                "포함 섭동: J2·J3·J4 띠 조화항, B* 기반 대기 항력, "
+                "주기 225분 이상이면 SDP4(달·태양, 공명)")
+    else:
+        eq = ["r̈ = " + " + ".join({"twobody": "a_2체", "j2": "a_J2", "drag": "a_항력"}[t]
+                                   for t in terms),
+              "a_2체 = −μ r / |r|³"]
+        if "j2" in terms:
+            eq.append("a_J2 = −(3/2) J2 μ R² / r⁵ · [x(1 − 5z²/r²), y(1 − 5z²/r²), z(3 − 5z²/r²)]")
+        if "drag" in terms:
+            eq.append("a_항력 = −½ ρ (C_D A/m) |v_rel| v_rel,  v_rel = v − ω × r")
+        ex.step("운동 방정식", *eq)
 
-    if info.rtol is None:
+    if sgp4:
+        ex.step("풀이", f"{info.integrator}: 각 시각에서 해석식을 직접 계산", f"출력 {len(tr)}점")
+    elif info.rtol is None:
         ex.step("풀이", f"{info.integrator}: 케플러 방정식을 각 시각에서 직접 풂",
                 f"출력 {len(tr)}점")
     else:
@@ -148,7 +158,7 @@ def explain_trajectory(tr: Trajectory) -> Explanation:
     lines.append(f"고도: {_km(alt[0])} → {_km(alt[-1])}")
     ex.step("시작 → 끝 (접촉 궤도 요소)", *lines)
 
-    if "j2" in terms and first.ecc < 1.0:
+    if ("j2" in terms or sgp4) and first.ecc < 1.0:
         a = _tb.semi_major_axis(tr.r, tr.v, tr.body.mu)
         T = first.period
         head = a[tr.t <= tr.t[0] + T]
@@ -257,4 +267,36 @@ def explain_transfer(t: Transfer) -> Explanation:
 
     ex.step("합계", " + ".join(_kms(b.magnitude) for b in burns) + f" = {_kms(t.total_dv)}")
     ex.assumptions.extend(t.assumptions)
+    return ex
+
+
+# ---------------------------------------------------------------- TLE
+
+def explain_tle(tle: TLEOrbit) -> Explanation:
+    """TLE 필드 해석. 값은 SGP4 평균 요소라 접촉 궤도 요소와 다르다."""
+    from .tle import MU_WGS72, checksum
+
+    title = f"TLE: {tle.name or '이름 없음'} (NORAD {tle.satnum})"
+    ex = Explanation(title)
+    ex.step("원문", tle.line1, tle.line2,
+            f"체크섬: 1행 {checksum(tle.line1)}, 2행 {checksum(tle.line2)} (정상)")
+    epoch = tle.epoch
+    ex.step("기준 시각",
+            f"1행 19–32열 (연도 + 일수, UTC) → {epoch.to_astropy().utc.iso} UTC",
+            f"= {epoch.iso} TDB")
+    n = tle.mean_motion
+    a = (MU_WGS72 / n**2) ** (1.0 / 3.0)
+    ex.step("평균 요소 (2행)",
+            f"경사각 i = {_deg(tle.inc)}",
+            f"승교점 적경 Ω = {_deg(tle.raan)}",
+            f"이심률 e = {tle.ecc:.7f}  (소수점 생략 표기)",
+            f"근지점 인수 ω = {_deg(tle.argp)}",
+            f"평균근점이각 M = {_deg(tle.M)}",
+            f"평균 운동 n = {tle.revs_per_day:.8f} rev/일",
+            f"→ 장반경 a ≈ (μ/n²)^(1/3) = {_km(a)}, 주기 {2 * math.pi / n / 60:.2f} 분")
+    ex.step("항력 항 (1행)", f"B* = {tle.bstar:.5e} (1/지구반지름)",
+            "SGP4 안에서만 쓰는 값이다. 실제 C_D·A/m와는 다르다.")
+    ex.assumptions.extend(("TLE 요소는 SGP4 전용 평균 요소다. 고전 궤도 요소로 직접 쓰지 말고 "
+                           "to_orbit()으로 상태벡터를 꺼내 쓴다.",
+                           "a는 Kozai 평균 운동과 WGS72 μ로 구한 근사값"))
     return ex

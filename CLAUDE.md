@@ -49,5 +49,5 @@ Windows 환경. 가상환경 파이썬을 직접 호출한다.
 - [x] 4. 전파기: 2체 → J2 → 항력 (`Orbit.propagate` → `Trajectory`)
 - [x] 5. 기동 계산 (`Orbit.transfer_to` → `Transfer`)
 - [x] 6. `.plot()`, `.explain()` (`viz.py`, `explain.py`)
-- [ ] 7. TLE 래퍼
+- [x] 7. TLE 래퍼 (`TLEOrbit`, sgp4)
 - [ ] 8. GMAT·TLE 대조 테스트, README 예제

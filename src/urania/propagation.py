@@ -12,6 +12,7 @@ import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import astropy.units as u
 import numpy as np
 from scipy.optimize import brentq
 
@@ -19,6 +20,7 @@ from . import units
 from .core import forces as _forces
 from .core import propagate as _prop
 from .environment import Environment, as_environment
+from .time import SECONDS_PER_DAY
 
 if TYPE_CHECKING:
     from .bodies import Body
@@ -117,6 +119,15 @@ class Trajectory:
         from .viz import plot_trajectory
 
         return plot_trajectory(self, ax, kind)
+
+
+def resolve_duration(duration, days) -> float:
+    """duration(초 또는 시간 Quantity)과 days(일, 숫자 또는 Quantity) 중 하나를 초로 바꾼다."""
+    if (duration is None) == (days is None):
+        raise ValueError("duration과 days 중 정확히 하나를 지정하세요")
+    if days is not None:
+        return units.to_si(days, u.day) * SECONDS_PER_DAY
+    return units.to_si(duration, units.TIME)
 
 
 def _default_n_points(orbit: Orbit, duration: float) -> int:
