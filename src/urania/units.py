@@ -17,6 +17,7 @@ ACCELERATION = u.m / u.s**2
 TIME = u.s
 MASS = u.kg
 ANGLE = u.rad
+ANGULAR_VELOCITY = u.rad / u.s
 MU = u.m**3 / u.s**2        # 중력상수
 DENSITY = u.kg / u.m**3
 TEMPERATURE = u.K
