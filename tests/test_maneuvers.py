@@ -163,3 +163,9 @@ def test_bad_method_rejected_even_for_plane_change():
     start = Orbit.circular(Earth, 500e3, inc=0.5)
     with pytest.raises(ValueError, match="Unknown transfer method"):
         start.transfer_to(LEO, method="bogus")
+
+
+def test_repr_singular_burn():
+    pc = Orbit.circular(Earth, 700e3, inc=1.7).transfer_to(Orbit.circular(Earth, 700e3, inc=1.5))
+    assert repr(pc).endswith("1 burn)")
+    assert repr(LEO.transfer_to(GEO)).endswith("2 burns)")

@@ -100,7 +100,7 @@ class Transfer:
 
     def __repr__(self) -> str:
         return (f"Transfer({self.kind}, Δv={self.total_dv / 1e3:.4f} km/s, "
-                f"tof={self.tof / 3600:.3f} h, {len(self.burns)} burns)")
+                f"tof={self.tof / 3600:.3f} h, {len(self.burns)} burn{'' if len(self.burns) == 1 else 's'})")
 
 
 def _unit(x: np.ndarray) -> np.ndarray:
