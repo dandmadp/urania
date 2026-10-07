@@ -231,6 +231,20 @@ class Orbit:
 
         return transfer(self, target, method, rb=rb, plane_split=plane_split)
 
+    # ---------------------------------------------------------- 설명·시각화
+
+    def explain(self):
+        """상태벡터에서 궤도 요소를 구하는 과정을 단계별로 보여준다."""
+        from .explain import explain_orbit
+
+        return explain_orbit(self)
+
+    def plot(self, ax=None):
+        """궤도를 자기 궤도면에 2D로 그린다. matplotlib Axes를 돌려준다."""
+        from .viz import plot_orbit
+
+        return plot_orbit(self, ax)
+
     def __repr__(self) -> str:
         return (f"Orbit({self.body.name}, a={self.a / 1e3:.1f} km, "
                 f"ecc={self.ecc:.4f}, inc={math.degrees(self.inc):.2f}°, "

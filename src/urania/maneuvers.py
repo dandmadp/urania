@@ -86,6 +86,18 @@ class Transfer:
         """전이를 마친 궤도."""
         return self.orbits[-1] if self.orbits else self.initial
 
+    def explain(self):
+        """전이 공식, 중간 속도, 기동별 Δv, 전이 시간을 단계별로 보여준다."""
+        from .explain import explain_transfer
+
+        return explain_transfer(self)
+
+    def plot(self, ax=None):
+        """전이를 2D로 그린다. 각 궤도를 자기 궤도면에 펼쳐 그린다."""
+        from .viz import plot_transfer
+
+        return plot_transfer(self, ax)
+
     def __repr__(self) -> str:
         return (f"Transfer({self.kind}, Δv={self.total_dv / 1e3:.4f} km/s, "
                 f"tof={self.tof / 3600:.3f} h, 기동 {len(self.burns)}회)")

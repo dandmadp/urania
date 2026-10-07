@@ -106,6 +106,18 @@ class Trajectory:
         """구형 천체 기준 고도 [m]."""
         return np.linalg.norm(self.r, axis=1) - self.body.radius
 
+    def explain(self):
+        """운동 방정식, 적분기, 결과 변화, 해석상 주의점을 보여준다."""
+        from .explain import explain_trajectory
+
+        return explain_trajectory(self)
+
+    def plot(self, ax=None, kind: str = "orbit"):
+        """kind="orbit": 시작 궤도면에 투영한 경로, "altitude": 시간별 고도."""
+        from .viz import plot_trajectory
+
+        return plot_trajectory(self, ax, kind)
+
 
 def _default_n_points(orbit: Orbit, duration: float) -> int:
     """궤도 1바퀴에 100점, 최소 101점, 최대 200001점."""

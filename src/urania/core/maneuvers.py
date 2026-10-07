@@ -8,10 +8,7 @@ import math
 import numpy as np
 from scipy.optimize import minimize_scalar
 
-
-def _vis_viva(r: float, a: float, mu: float) -> float:
-    """반지름 r에서 장반경 a 궤도의 속도 v = √(μ(2/r - 1/a))."""
-    return math.sqrt(mu * (2.0 / r - 1.0 / a))
+from .twobody import vis_viva as _vis_viva
 
 
 def hohmann(r1: float, r2: float, mu: float) -> tuple[float, float, float]:

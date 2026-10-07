@@ -2,6 +2,8 @@
 
 import math
 
+import numpy as np
+
 
 def period(a: float, mu: float) -> float:
     """공전 주기 [s]. 타원 궤도(a > 0)만."""
@@ -20,6 +22,11 @@ def specific_energy(a: float, mu: float) -> float:
     return -mu / (2.0 * a)
 
 
+def vis_viva(r: float, a: float, mu: float) -> float:
+    """반지름 r에서 장반경 a 궤도의 속도 [m/s]: v = √(μ(2/r - 1/a))."""
+    return math.sqrt(mu * (2.0 / r - 1.0 / a))
+
+
 def circular_velocity(r: float, mu: float) -> float:
     """반지름 r에서의 원 궤도 속도 [m/s]."""
     return math.sqrt(mu / r)
@@ -33,3 +40,15 @@ def escape_velocity(r: float, mu: float) -> float:
 def synchronous_radius(mu: float, rotation_rate: float) -> float:
     """천체 자전과 주기가 같은 원 궤도 반지름 [m] (지구면 GEO)."""
     return (mu / rotation_rate**2) ** (1.0 / 3.0)
+
+
+def semi_major_axis(r, v, mu: float):
+    """상태벡터에서 접촉 장반경 [m]: a = 1 / (2/|r| - |v|²/μ) (활력 방정식).
+
+    r, v가 N×3 배열이면 길이 N 배열을 돌려준다.
+    """
+    r = np.asarray(r, dtype=float)
+    v = np.asarray(v, dtype=float)
+    r_norm = np.linalg.norm(r, axis=-1)
+    v2 = np.sum(v * v, axis=-1)
+    return 1.0 / (2.0 / r_norm - v2 / mu)
