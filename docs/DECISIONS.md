@@ -48,3 +48,31 @@
   프리셋 목록(LEO, ISS, GEO, SSO)이 궤도로 분류되어 있어 `ISS.transfer_to(GEO)` 형태로 정했다.
 - 프리셋은 대표값이다 (ISS: 420 km 원 궤도, 51.64°). 실제 위치는 TLE로 얻는다.
 - GEO 반지름은 지구 자전 각속도로부터, SSO 경사각은 J2 승교점 변화율로부터 계산한다.
+
+## D11. propagate()는 Orbit이 아니라 Trajectory를 돌려준다 (4단계)
+- SPEC은 "새 객체 반환"과 "결과 메타데이터 보관"을 함께 요구한다. Orbit에 메타데이터를 섞지 않고,
+  시계열(t, r, v) + `PropagationInfo`(모델·적분기·허용오차·가정·종료 사유)를 담은 `Trajectory`를 돌려준다.
+- 최종 궤도는 `trajectory.final`, 중간 시점은 `orbit_at(i)`. 시계열은 6단계 `.plot()`에서 그대로 쓴다.
+
+## D12. 2체 모델은 기본적으로 해석해, 그 외는 DOP853 (4단계)
+- `method="auto"`: 2체는 케플러 해석해(정확·빠름), J2·항력은 `solve_ivp` DOP853.
+  `method="DOP853"`을 명시하면 2체도 수치 적분해 적분기 검증에 쓸 수 있다.
+- 기본 허용오차 rtol=1e-12, atol=1e-8. rtol=1e-10이면 이심 궤도 10일 전파에서 해석해 대비 51 m,
+  1e-12이면 0.5 m. 비용은 약 1.7배(ISS 30일 j2+drag 약 5.5초). GMAT 대조를 위해 정확도를 택했다.
+- 천체 표면 도달 시 적분을 멈추고 `info.terminated`에 기록한다.
+
+## D13. 환경값은 모두 Environment로 통일 (4단계)
+- 상수 → `Constant`, 함수 f(r, t) → `Function`, `Environment` 객체는 그대로. `as_environment()`가 변환한다.
+- t는 J2000 기준 TDB 초(float). 매 스텝 호출되므로 Epoch 객체를 만들지 않는다.
+- 각 Environment는 `description`을 가져 결과 메타데이터의 가정 목록에 들어간다.
+- 지구 대기 기본값은 Vallado 표 8-4 지수 모델(`Body.atmosphere`). `density=`로 덮어쓸 수 있다.
+
+## D14. 전파 모듈은 패키지 대신 단일 모듈 propagation.py (4단계)
+- SPEC은 `propagation/` 패키지를 제안했지만 현재 규모(약 200줄)에서는 단일 모듈이 읽기 쉽다.
+  힘 모델은 `core/forces.py`, 적분은 `core/propagate.py`에 있어 propagation.py는 조립만 한다.
+  충실도 3~4단계가 추가되면 패키지로 나눈다.
+
+## 메모: 6단계 explain()에 반영할 것
+- J2가 있으면 접촉(osculating) 장반경이 단주기로 크게 진동한다 (ISS 고도에서 0 ~ -12 km).
+  `final.a - initial.a`를 감쇠량으로 읽으면 안 된다. 항력만 넣은 30일 감쇠는 2.65 km인데,
+  J2+항력에서 끝 시점만 비교하면 14 km로 보인다. explain()에서 이 점을 경고하고, 필요하면 평균 요소를 제공한다.

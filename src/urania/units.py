@@ -12,6 +12,7 @@ import numpy as np
 
 # 물리량별 내부 SI 단위
 LENGTH = u.m
+AREA = u.m**2
 VELOCITY = u.m / u.s
 ACCELERATION = u.m / u.s**2
 TIME = u.s

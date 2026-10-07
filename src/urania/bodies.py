@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import units
+from .atmosphere import ExponentialAtmosphere
 from .constants import G
 
 
@@ -21,7 +22,7 @@ class Body:
     radius: float               # 적도 반지름 [m]
     J2: float = 0.0             # 2차 띠 조화계수 [-]
     rotation_rate: float = 0.0  # 자전 각속도 [rad/s] (항성일 기준)
-    atmosphere: Any = field(default=None, compare=False)  # 대기 모델 연결점 (4단계)
+    atmosphere: Any = field(default=None, compare=False)  # 대기 밀도 Environment
     source: str = field(default="", compare=False)        # 상수 출처
 
     @classmethod
@@ -61,6 +62,7 @@ Earth = Body(
     radius=6378137.0,
     J2=1.08262668e-3,
     rotation_rate=7.292115e-5,
+    atmosphere=ExponentialAtmosphere(radius=6378137.0),
     source="μ, R: WGS 84; J2: EGM-08 (Vallado 표 D-1)",
 )
 

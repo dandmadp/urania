@@ -10,7 +10,7 @@ import numpy as np
 
 from . import units
 from .bodies import Body, Earth
-from .constants import SSO_RAAN_RATE
+from .constants import DAY, SSO_RAAN_RATE
 from .core import elements as _el
 from .core import j2 as _j2
 from .core import kepler as _kepler
@@ -189,6 +189,28 @@ class Orbit:
         """J2에 의한 근지점 인수 평균 변화율 [rad/s]."""
         b = self.body
         return _j2.argp_rate(self.a, self.ecc, self.inc, b.mu, b.radius, b.J2)
+
+    # ---------------------------------------------------------- 전파
+
+    def propagate(self, duration=None, *, days=None, model="twobody", **kwargs):
+        """궤도를 전파해 Trajectory를 돌려준다. 원본은 바뀌지 않는다.
+
+        Args:
+            duration: 전파 시간 (초 또는 시간 Quantity). days와 둘 중 하나만.
+            days: 전파 시간 [일]
+            model: "twobody", "j2", "j2+drag" 또는 충실도 0~2
+            **kwargs: cd, area, mass, density(상수·함수·Environment),
+                method, rtol, atol, n_points. 자세한 내용은 `propagation.propagate`.
+
+        예: ``ISS.propagate(days=30, model="j2+drag", area=1500, mass=420000).final``
+        """
+        from .propagation import propagate
+
+        if (duration is None) == (days is None):
+            raise ValueError("duration과 days 중 정확히 하나를 지정하세요")
+        if days is not None:
+            duration = days * DAY
+        return propagate(self, duration, model=model, **kwargs)
 
     def __repr__(self) -> str:
         return (f"Orbit({self.body.name}, a={self.a / 1e3:.1f} km, "

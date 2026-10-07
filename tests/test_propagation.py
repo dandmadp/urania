@@ -1,0 +1,132 @@
+import dataclasses
+import math
+
+import astropy.units as u
+import numpy as np
+import pytest
+
+from urania import ISS, Earth, Environment, Mars, Orbit
+from urania.propagation import DEFAULT_RTOL, parse_model
+
+DAY = 86400.0
+ISS_DRAG = {"area": 1500, "mass": 420000}
+
+
+def test_parse_model():
+    assert parse_model("twobody") == {"twobody"}
+    assert parse_model("j2") == {"twobody", "j2"}
+    assert parse_model("J2 + drag") == {"twobody", "j2", "drag"}
+    assert parse_model(2) == {"twobody", "j2", "drag"}
+    with pytest.raises(NotImplementedError):
+        parse_model("j2+moon")
+    with pytest.raises(NotImplementedError):
+        parse_model(3)
+    with pytest.raises(ValueError):
+        parse_model("j3")
+
+
+def test_original_unchanged_and_final_epoch():
+    r0 = ISS.r.copy()
+    tr = ISS.propagate(days=1)
+    np.testing.assert_array_equal(ISS.r, r0)
+    assert tr.final.epoch - ISS.epoch == pytest.approx(DAY)
+    assert tr.info.integrator.startswith("kepler")
+
+
+def test_duration_forms():
+    a = ISS.propagate(3600)
+    b = ISS.propagate(60 * u.min)
+    np.testing.assert_allclose(a.final.r, b.final.r)
+    with pytest.raises(ValueError):
+        ISS.propagate()
+    with pytest.raises(ValueError):
+        ISS.propagate(3600, days=1)
+
+
+def test_numeric_twobody_matches_analytic():
+    a = ISS.propagate(days=3)
+    b = ISS.propagate(days=3, method="DOP853")
+    assert np.linalg.norm(a.final.r - b.final.r) < 1.0
+    assert b.info.rtol == DEFAULT_RTOL
+
+
+def test_j2_raan_drift_matches_secular_rate():
+    """J2 수치 전파의 승교점 변화가 장기 변화율 공식과 1% 이내로 일치."""
+    days = 10
+    tr = ISS.propagate(days=days, model="j2")
+    d_raan = (tr.final.raan - ISS.raan + math.pi) % (2 * math.pi) - math.pi
+    expected = ISS.raan_rate * days * DAY
+    assert d_raan == pytest.approx(expected, rel=0.01)
+    assert "J2" in " ".join(tr.info.assumptions)
+
+
+def test_drag_decay_matches_analytic():
+    """자전 없는 천체 + 일정 밀도에서 원 궤도 감쇠율 da/dt = -ρ B √(μa).
+
+    가우스 행성 방정식 da/dt = 2a²v·a_T/μ 에 원 궤도 항력 a_T = -½ρBv² 를 넣은 결과.
+    """
+    body = dataclasses.replace(Earth, rotation_rate=0.0)
+    o = Orbit.circular(body, 400e3)
+    rho, cd, area, mass = 3.725e-12, 2.2, 10.0, 100.0
+    B = cd * area / mass
+    tr = o.propagate(days=1, model="drag", cd=cd, area=area, mass=mass, density=rho)
+    expected = -rho * B * math.sqrt(Earth.mu * o.a) * DAY
+    assert tr.final.a - o.a == pytest.approx(expected, rel=0.01)
+
+
+def test_density_injection_forms_agree():
+    """상수·Quantity·함수·Environment 객체 주입 결과가 같아야 한다."""
+    rho = 3e-12
+
+    class ConstRho(Environment):
+        description = "test"
+
+        def __call__(self, r, t):
+            return rho
+
+    kw = dict(days=0.5, model="j2+drag", **ISS_DRAG)
+    finals = [
+        ISS.propagate(density=rho, **kw).final.r,
+        ISS.propagate(density=rho * u.kg / u.m**3, **kw).final.r,
+        ISS.propagate(density=lambda r, t: rho, **kw).final.r,
+        ISS.propagate(density=ConstRho(), **kw).final.r,
+    ]
+    for f in finals[1:]:
+        np.testing.assert_allclose(f, finals[0], atol=1e-6)
+
+
+def test_default_atmosphere_decays_iss():
+    tr = ISS.propagate(days=2, model="j2+drag", **ISS_DRAG)
+    assert tr.final.a < ISS.a
+    assert "지수 대기" in " ".join(tr.info.assumptions)
+    assert tr.info.terminated is None
+
+
+def test_reentry_terminates():
+    o = Orbit.circular(Earth, 130e3)
+    tr = o.propagate(days=5, model="drag", area=1.0, mass=1.0)
+    assert tr.info.terminated
+    assert tr.altitude[-1] == pytest.approx(0.0, abs=1e-3)
+    assert tr.t[-1] < 5 * DAY
+
+
+def test_drag_requires_parameters():
+    with pytest.raises(ValueError):
+        ISS.propagate(days=1, model="j2+drag")
+    mars_orbit = Orbit.circular(Mars, 300e3)
+    with pytest.raises(ValueError):
+        mars_orbit.propagate(days=1, model="drag", **ISS_DRAG)
+
+
+def test_backward_then_forward():
+    back = ISS.propagate(days=-1, model="j2").final
+    fwd = back.propagate(days=1, model="j2").final
+    assert np.linalg.norm(fwd.r - ISS.r) < 1e-2
+    assert fwd.epoch == ISS.epoch
+
+
+def test_trajectory_immutable():
+    tr = ISS.propagate(3600)
+    with pytest.raises(ValueError):
+        tr.r[0, 0] = 0.0
+    assert len(tr) == tr.r.shape[0]
