@@ -51,4 +51,4 @@ Windows. Call the virtual environment's Python directly.
 - [x] 5. Maneuvers (`Orbit.transfer_to` → `Transfer`)
 - [x] 6. `.plot()`, `.explain()` (`viz.py`, `explain.py`)
 - [x] 7. TLE wrapper (`TLEOrbit`, sgp4)
-- [~] 8. TLE comparison, README and examples done. GMAT comparison has the harness only: the user runs `validation/gmat/*.script` in GMAT → commit the fixtures → finalize tolerances → fill in the README figure
+- [x] 8. GMAT and TLE comparison, README, examples (GMAT R2026a at `D:\gmat-win-R2026a`; rerun with `bin/GmatConsole.exe --run <script>`)

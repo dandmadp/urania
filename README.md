@@ -131,14 +131,18 @@ TLE elements are SGP4-specific mean elements, so they are kept separate from `Or
 | Drag decay | analytic circular decay da/dt = −ρB√(μa) | within 1% |
 | SGP4 wrapper | Vallado SGP4 verification set (satellite 00005) | within 1e-6 km |
 | urania propagator vs SGP4 | real ISS TLE (2019-12-09), J2 model | at most 2.34 km over 24 hours |
-| NASA GMAT | two-body / J2 / J2+drag scenarios | **waiting for reference data** ([validation/gmat](validation/gmat)) |
+| NASA GMAT R2026a, two-body | 1 day, RK89 | at most 0.009 m |
+| NASA GMAT R2026a, J2 | 7 days, 420 km, 51.64° | at most 3.3 m (144 m without the true pole, see below) |
+| NASA GMAT R2026a, J2 + drag | 3 days, 400 km, exponential atmosphere | at most 3.3 m (73 m without the true pole) |
 
-SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sanity check rather than precise validation. Precise validation comes from the GMAT comparison.
+SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sanity check rather than precise validation. Precise validation comes from the GMAT comparison ([validation/gmat](validation/gmat), [tests/test_gmat.py](tests/test_gmat.py)).
+
+GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the J2000 epoch is 7.69" away from the J2000 z axis. urania uses the frame's z axis as the spin axis. The small figures above compare both in a frame whose z axis is the true pole; the larger figures in parentheses are the direct comparison in the J2000 frame.
 
 ## Limitations (MVP)
 
 - Perturbations: J2 and atmospheric drag. Lunar/solar perturbations, solar radiation pressure and higher-order gravity come later.
-- Atmosphere: Vallado's exponential model (mean solar activity). Real density varies several-fold with solar activity.
+- Atmosphere: Vallado's exponential model (mean solar activity), with height above the reference ellipsoid. Real density varies several-fold with solar activity.
 - Maneuvers: impulsive transfers between circular orbits. Rendezvous (phasing) and interplanetary transfers come later.
 - Time: TDB internally. UTC input goes through `Epoch.from_astropy()`.
 - Frames: fixed inertial axes (precession and nutation ignored). TLEs use TEME as is.

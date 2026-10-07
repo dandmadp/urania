@@ -47,3 +47,14 @@ def test_class_instead_of_instance_rejected():
 
     with pytest.raises(TypeError, match="instance"):
         as_environment(ExponentialAtmosphere, units.DENSITY)
+
+
+def test_exponential_atmosphere_uses_ellipsoid_height():
+    """The same |r| gives a thinner atmosphere over the pole (about 21 km higher above the ellipsoid)."""
+    from urania import Earth
+    from urania.core.forces import exponential_density
+
+    r = Earth.radius + 400e3
+    assert Earth.atmosphere(np.array([r, 0.0, 0.0]), 0.0) == pytest.approx(exponential_density(400e3))
+    assert Earth.atmosphere(np.array([0.0, 0.0, r]), 0.0) < 0.75 * exponential_density(400e3)
+    assert "ellipsoid" in Earth.atmosphere.description

@@ -15,10 +15,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import astropy.units as u
-import numpy as np
 
 from . import units
-from .core.forces import exponential_density
+from .core.forces import exponential_density, geodetic_altitude
 
 
 class Environment(ABC):
@@ -72,12 +71,17 @@ def as_environment(value, si_unit: u.UnitBase) -> Environment:
 # ---------------------------------------------------------------- atmospheric density models
 
 class ExponentialAtmosphere(Environment):
-    """Exponential atmosphere of Vallado table 8-4. Altitude is spherical: |r| - R."""
+    """Exponential atmosphere of Vallado table 8-4.
 
-    description = "exponential atmosphere (Vallado table 8-4, spherical-Earth altitude)"
+    Altitude is the height above the reference ellipsoid (radius, flattening), measured about
+    the inertial z axis. With flattening = 0 it is the spherical height |r| - R.
+    """
 
-    def __init__(self, radius: float):
+    def __init__(self, radius: float, flattening: float = 0.0):
         self.radius = radius
+        self.flattening = flattening
+        surface = "ellipsoid" if flattening else "sphere"
+        self.description = f"exponential atmosphere (Vallado table 8-4, height above the {surface})"
 
     def __call__(self, r, t: float) -> float:
-        return exponential_density(np.sqrt(r @ r) - self.radius)
+        return exponential_density(geodetic_altitude(r, self.radius, self.flattening))

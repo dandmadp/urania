@@ -22,12 +22,13 @@ class Body:
     radius: float               # equatorial radius [m]
     J2: float = 0.0             # second zonal harmonic [-]
     rotation_rate: float = 0.0  # rotation rate [rad/s] (sidereal)
+    flattening: float = 0.0     # reference ellipsoid flattening f = (a - b)/a [-]
     atmosphere: Any = field(default=None, compare=False)  # atmospheric density Environment
     source: str = field(default="", compare=False)        # source of the constants
 
     @classmethod
     def create(cls, name: str, mu, radius, J2: float = 0.0, rotation_rate=0.0,
-               atmosphere=None, source: str = "") -> Body:
+               flattening: float = 0.0, atmosphere=None, source: str = "") -> Body:
         """Create from values with units. Plain numbers are taken as SI."""
         return cls(
             name=name,
@@ -35,6 +36,7 @@ class Body:
             radius=units.to_si(radius, units.LENGTH),
             J2=J2,
             rotation_rate=units.to_si(rotation_rate, units.ANGULAR_VELOCITY),
+            flattening=flattening,
             atmosphere=atmosphere,
             source=source,
         )
@@ -62,8 +64,9 @@ Earth = Body(
     radius=6378137.0,
     J2=1.08262668e-3,
     rotation_rate=7.292115e-5,
-    atmosphere=ExponentialAtmosphere(radius=6378137.0),
-    source="μ, R: WGS 84; J2: EGM-08 (Vallado table D-1)",
+    flattening=1 / 298.257223563,
+    atmosphere=ExponentialAtmosphere(radius=6378137.0, flattening=1 / 298.257223563),
+    source="μ, R, f: WGS 84; J2: EGM-08 (Vallado table D-1)",
 )
 
 Moon = Body(
@@ -72,7 +75,8 @@ Moon = Body(
     radius=1.7374e6,
     J2=2.033e-4,
     rotation_rate=2.6617e-6,  # sidereal month 27.3217 days
-    source="μ: DE440; J2: GRAIL GRGM1200A",
+    flattening=0.0012,
+    source="μ: DE440; J2: GRAIL GRGM1200A; f: Moon Fact Sheet (NASA GSFC)",
 )
 
 Mars = Body(
@@ -81,5 +85,6 @@ Mars = Body(
     radius=3.3962e6,
     J2=1.96045e-3,
     rotation_rate=7.088218e-5,  # sidereal day 24.6229 hours
-    source="μ: DE440; R, J2: Mars Fact Sheet (NASA GSFC)",
+    flattening=0.00589,
+    source="μ: DE440; R, J2, f: Mars Fact Sheet (NASA GSFC)",
 )

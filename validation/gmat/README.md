@@ -28,8 +28,26 @@ How to produce the reference data that compares the urania propagator with NASA 
 - Output every hour, EarthMJ2000Eq frame, km and km/s.
 - The output path in the scripts is the absolute path on the machine that generated them. On another machine, rerun step 2.
 
-## Known sources of difference
+## Results (GMAT R2026a)
 
-- Whether GMAT's exponential atmosphere (`Exponential`) matches urania's Vallado table must be confirmed from the results.
-  If your GMAT version does not support `AtmosphereModel = Exponential`, the j2_drag script will fail.
-- GMAT uses the true Earth orientation (nutation, EOP) for J2 and atmospheric rotation. urania uses a fixed z axis and a constant rotation rate.
+| scenario | EarthMJ2000Eq frame | true-pole frame |
+|---|---|---|
+| twobody, 1 day | 0.009 m | - |
+| j2, 7 days | 144 m | 3.30 m |
+| j2_drag, 3 days | 73 m | 3.32 m |
+
+## Sources of difference (all identified)
+
+- GMAT's exponential atmosphere table (`data/atmosphere/earth/EarthExponentialAtmosphereData.txt`) is identical
+  to urania's Vallado table 8-4. GMAT measures the height above the reference ellipsoid; urania does too since D27
+  (with a spherical height the j2_drag difference was 28.6 km). The scripts pin Earth's radius and flattening.
+- GMAT evaluates J2 and the atmosphere about the true spin axis (nutation, EOP), 7.69" from the MJ2000Eq z axis at
+  the epoch. urania uses the frame's z axis. `tests/test_gmat.py` also compares in a frame whose z axis is the true
+  pole, which removes this difference.
+
+## GMAT scripting notes
+
+- The ElapsedSecs stop condition counts from the start of each `Propagate` command, so every loop pass propagates 3600 s.
+- A ReportFile must not be named `Report` (it clashes with the `Report` command).
+- GMAT writes the header line again on every `Report` command; the loader keeps numeric rows only.
+- Command line: `GmatConsole.exe --run <script>` from GMAT's `bin` folder (about 1 to 2 s per scenario).

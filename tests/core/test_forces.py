@@ -60,3 +60,36 @@ def test_exponential_density_monotonic_and_edges():
     rho = [forces.exponential_density(h) for h in hs]
     assert all(a > b for a, b in zip(rho, rho[1:]))
     assert forces.exponential_density(-100.0) == 1.225
+
+
+R_WGS84, F_WGS84 = 6378137.0, 1 / 298.257223563
+
+
+def _point_on_ellipsoid(lat: float, h: float) -> np.ndarray:
+    """Inverse of geodetic_altitude: geodetic latitude and height → position (longitude 0)."""
+    e2 = F_WGS84 * (2 - F_WGS84)
+    N = R_WGS84 / np.sqrt(1 - e2 * np.sin(lat) ** 2)
+    return np.array([(N + h) * np.cos(lat), 0.0, (N * (1 - e2) + h) * np.sin(lat)])
+
+
+@pytest.mark.parametrize("lat_deg", [0.0, 30.0, 51.6, 89.9, 90.0, -45.0])
+@pytest.mark.parametrize("h", [0.0, 400e3, 35786e3])
+def test_geodetic_altitude_round_trip(lat_deg, h):
+    r = _point_on_ellipsoid(np.radians(lat_deg), h)
+    assert forces.geodetic_altitude(r, R_WGS84, F_WGS84) == pytest.approx(h, abs=1e-6)
+
+
+def test_geodetic_altitude_known_values():
+    # Polar radius b = a(1 - f) = 6356752.314 km: a point at r = b on the pole has zero height
+    assert forces.geodetic_altitude(np.array([0.0, 0.0, 6356752.314245]), R_WGS84, F_WGS84) \
+        == pytest.approx(0.0, abs=1e-3)
+    # Same |r| is about 21 km higher above the ellipsoid at the pole than at the equator
+    r = R_WGS84 + 400e3
+    eq = forces.geodetic_altitude(np.array([r, 0.0, 0.0]), R_WGS84, F_WGS84)
+    pole = forces.geodetic_altitude(np.array([0.0, 0.0, r]), R_WGS84, F_WGS84)
+    assert pole - eq == pytest.approx(R_WGS84 * F_WGS84, rel=1e-6)
+
+
+def test_geodetic_altitude_sphere():
+    r = np.array([4000e3, 3000e3, 5000e3])
+    assert forces.geodetic_altitude(r, R_WGS84, 0.0) == pytest.approx(np.linalg.norm(r) - R_WGS84)

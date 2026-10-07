@@ -128,7 +128,7 @@
 ## D24. GMAT comparison uses a script generator and fixed fixtures (step 8)
 - GMAT output cannot be produced in this repository, so it is never made up. `validation/gmat/make_scripts.py` writes GMAT scripts
   from urania scenarios, and the user commits the results of running them in GMAT (`tests/fixtures/gmat/*.txt`).
-  `tests/test_gmat.py` skips if the fixtures are missing. Tolerances are provisional until the real data is in.
+  `tests/test_gmat.py` skips if the fixtures are missing. Tolerances were finalized from the GMAT R2026a results (D27).
 - Conditions are matched to reduce differences: J2000 epoch (zero precession), a test body with GMAT's EGM96 constants, RK89 at 1e-13.
 
 ## D25. README code is executed by the tests (step 8)
@@ -140,3 +140,17 @@
 - Code, docstrings, error messages, `explain()` output, tests and documents are all in English, for an international open-source audience.
   One language avoids keeping two versions in sync. This replaces the earlier Korean-docstring rule and the
   "explain() text is Korean" part of D18.
+
+## D27. Atmospheric density uses the height above the reference ellipsoid (step 8, GMAT comparison)
+- GMAT's exponential atmosphere uses the same Vallado table but the height above the reference ellipsoid. With a spherical
+  height urania differed from GMAT by 28.6 km after 3 days at 400 km and 51.64°: at the same |r| the ellipsoid height is up to
+  about 21 km larger at high latitude, so the density is 20 to 25% lower.
+- `Body.flattening` was added (Earth WGS 84 1/298.257223563, Moon 0.0012, Mars 0.00589), and `core.forces.geodetic_altitude`
+  computes the exact height (iterated geodetic latitude). `ExponentialAtmosphere(radius, flattening)` uses it.
+  With the same spin axis as GMAT the difference is now 3.3 m.
+- The surface-impact event and `Trajectory.altitude` stay spherical (|r| - R).
+
+## Note: the frame's z axis is taken as the spin axis
+- J2, atmospheric rotation and the ellipsoid all use the inertial z axis. GMAT uses the true pole of date, 7.69" from the J2000 z axis
+  at the J2000 epoch, which gives a 144 m difference after 7 days in the J2 scenario (3.3 m once both use the same axis).
+- Not changed in this step; recorded here because it matters for state vectors given in the J2000 frame at epochs far from J2000.
