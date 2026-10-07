@@ -213,6 +213,24 @@ class Orbit:
             duration = units.to_si(days, u.day) * DAY
         return propagate(self, duration, model=model, **kwargs)
 
+    # ---------------------------------------------------------- 기동
+
+    def transfer_to(self, target: Orbit, method: str = "hohmann", *, rb=None,
+                    plane_split="optimal"):
+        """원 궤도 target으로 가는 전이를 계산해 Transfer를 돌려준다.
+
+        Args:
+            method: "hohmann" 또는 "bielliptic"
+            rb: 이중타원 전이의 중간 원점 반지름 (길이)
+            plane_split: 궤도면이 다를 때 호만 1차 기동이 맡을 궤도면 변경 비율
+                (0~1) 또는 "optimal"(총 Δv 최소)
+
+        예: ``ISS.transfer_to(GEO).total_dv``
+        """
+        from .maneuvers import transfer
+
+        return transfer(self, target, method, rb=rb, plane_split=plane_split)
+
     def __repr__(self) -> str:
         return (f"Orbit({self.body.name}, a={self.a / 1e3:.1f} km, "
                 f"ecc={self.ecc:.4f}, inc={math.degrees(self.inc):.2f}°, "

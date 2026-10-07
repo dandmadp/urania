@@ -47,7 +47,7 @@ Windows 환경. 가상환경 파이썬을 직접 호출한다.
 - [x] 2. 단위·시간 경계 (astropy, `Epoch`)
 - [x] 3. `Body`, `Orbit` 객체와 프리셋
 - [x] 4. 전파기: 2체 → J2 → 항력 (`Orbit.propagate` → `Trajectory`)
-- [ ] 5. 기동 계산 (`Transfer`)
+- [x] 5. 기동 계산 (`Orbit.transfer_to` → `Transfer`)
 - [ ] 6. `.plot()`, `.explain()`
 - [ ] 7. TLE 래퍼
 - [ ] 8. GMAT·TLE 대조 테스트, README 예제

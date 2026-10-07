@@ -2,6 +2,7 @@
 
 from .bodies import Body, Earth, Mars, Moon, Sun
 from .environment import Environment
+from .maneuvers import Burn, Transfer
 from .orbits import GEO, ISS, LEO, SSO, Orbit, sun_synchronous
 from .propagation import PropagationInfo, Trajectory
 from .time import J2000, Epoch
@@ -12,5 +13,5 @@ __all__ = [
     "Body", "Earth", "Mars", "Moon", "Sun",
     "Orbit", "sun_synchronous", "LEO", "ISS", "SSO", "GEO",
     "Epoch", "J2000",
-    "Environment", "Trajectory", "PropagationInfo",
+    "Environment", "Trajectory", "PropagationInfo", "Transfer", "Burn",
 ]
