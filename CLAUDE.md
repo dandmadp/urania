@@ -50,4 +50,4 @@ Windows 환경. 가상환경 파이썬을 직접 호출한다.
 - [x] 5. 기동 계산 (`Orbit.transfer_to` → `Transfer`)
 - [x] 6. `.plot()`, `.explain()` (`viz.py`, `explain.py`)
 - [x] 7. TLE 래퍼 (`TLEOrbit`, sgp4)
-- [ ] 8. GMAT·TLE 대조 테스트, README 예제
+- [~] 8. TLE 대조·README·예제 완료. GMAT 대조는 틀만 있음: 사용자가 GMAT으로 `validation/gmat/*.script` 실행 → 픽스처 커밋 → 허용오차 확정 → README 수치 기입

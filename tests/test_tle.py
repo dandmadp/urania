@@ -114,6 +114,20 @@ def test_own_propagator_close_to_sgp4_short_term(iss):
     assert np.linalg.norm(mine - sgp4) < 5e3
 
 
+def test_own_j2_propagator_vs_sgp4_one_day(iss):
+    """실제 ISS TLE: SGP4 상태에서 출발한 urania J2 전파가 24시간 동안 SGP4와 3 km 이내.
+
+    측정값 (2019-12-09 TLE, 1분 간격): 최대 2.34 km (23.2시간), 24시간 끝 0.98 km.
+    SGP4 자체 정확도가 약 1 km이고 J3·J4·항력 차이가 있어 이 수준이 정상이다.
+    2체만 쓰면 같은 조건에서 24시간 뒤 645 km 벌어진다.
+    """
+    o = iss.to_orbit()
+    sgp4 = iss.propagate(days=1, n_points=1441)
+    mine = o.propagate(days=1, model="j2", n_points=1441)
+    errors = np.linalg.norm(mine.r - sgp4.r, axis=1)
+    assert errors.max() < 3e3
+
+
 def test_decayed_satellite_terminates():
     """평균 운동이 크고 B*가 매우 큰 위성은 SGP4가 오류(재진입)를 내고 거기서 멈춘다."""
     def with_checksum(line):

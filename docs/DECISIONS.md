@@ -126,3 +126,14 @@
 ## D23. TLE 시각(UTC) ↔ Epoch(TDB)는 astropy로 변환 (7단계)
 - D7에서 자체 시간 척도 변환은 하지 않기로 했다. TLE epoch과 SGP4 호출 시각 변환만 astropy Time을 거친다.
 - 중력 상수는 TLE 생성 규약인 WGS72. `to_orbit()` 이후의 Orbit은 Earth(WGS 84) 상수를 쓴다.
+
+## D24. GMAT 대조는 스크립트 생성기 + 고정 픽스처 (8단계)
+- GMAT 출력은 이 저장소에서 만들 수 없으므로 지어내지 않는다. `validation/gmat/make_scripts.py`가 urania 시나리오에서
+  GMAT 스크립트를 만들고, 사용자가 GMAT에서 실행한 결과(`tests/fixtures/gmat/*.txt`)를 커밋한다.
+  `tests/test_gmat.py`는 픽스처가 없으면 skip한다. 허용 오차는 잠정값이며 실제 데이터를 본 뒤 확정한다.
+- 조건을 맞춰 차이 요인을 줄였다: J2000 기준 시각(세차 0), GMAT EGM96 상수로 만든 테스트 천체, RK89 1e-13.
+
+## D25. README 코드는 테스트로 실행 (8단계)
+- `tests/test_docs.py`가 README의 ```python 블록을 모두 실행하고, README에 적은 Transfer repr 숫자가 실제와 같은지 확인한다.
+  예제 스크립트도 실행한다 (60일 전파 두 번인 cubesat_decay.py는 느려서 제외).
+- 자체 전파기 vs SGP4 기준은 1분 간격으로 잰 최대값(2.34 km)을 쓴다. 처음에 4개 시점만 보고 0.98 km로 적을 뻔했다.
