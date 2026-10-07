@@ -26,6 +26,14 @@ class Body:
     atmosphere: Any = field(default=None, compare=False)  # atmospheric density Environment
     source: str = field(default="", compare=False)        # source of the constants
 
+    def __post_init__(self):
+        if not self.mu > 0.0:
+            raise ValueError(f"mu must be positive: {self.mu}")
+        if not self.radius > 0.0:
+            raise ValueError(f"radius must be positive: {self.radius}")
+        if not 0.0 <= self.flattening < 1.0:
+            raise ValueError(f"flattening must be in [0, 1): {self.flattening}")
+
     @classmethod
     def create(cls, name: str, mu, radius, J2: float = 0.0, rotation_rate=0.0,
                flattening: float = 0.0, atmosphere=None, source: str = "") -> Body:

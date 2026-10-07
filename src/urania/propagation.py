@@ -9,7 +9,9 @@ Fidelity levels (SPEC 2.7):
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import astropy.units as u
@@ -17,6 +19,7 @@ import numpy as np
 from scipy.optimize import brentq
 
 from . import units
+from .core import elements as _el
 from .core import forces as _forces
 from .core import propagate as _prop
 from .environment import Environment, as_environment
@@ -110,6 +113,24 @@ class Trajectory:
         """Altitude above a spherical body [m]."""
         return np.linalg.norm(self.r, axis=1) - self.body.radius
 
+    @property
+    def epochs(self) -> list[Epoch]:
+        """Epoch of every sample."""
+        return [self.epoch + float(t) for t in self.t]
+
+    @cached_property
+    def elements(self) -> dict[str, np.ndarray]:
+        """Osculating classical elements at every sample, as read-only arrays (SI, rad).
+
+        Keys: p, a, ecc, inc, raan, argp, nu. Angles are not unwrapped.
+        """
+        els = [_el.rv_to_coe(r, v, self.body.mu) for r, v in zip(self.r, self.v)]
+        out = {name: np.array([getattr(e, name) for e in els])
+               for name in ("p", "a", "ecc", "inc", "raan", "argp", "nu")}
+        for arr in out.values():
+            arr.flags.writeable = False
+        return out
+
     def explain(self):
         """Show the equations of motion, integrator, changes in the result and interpretation caveats."""
         from .explain import explain_trajectory
@@ -128,8 +149,14 @@ def resolve_duration(duration, days) -> float:
     if (duration is None) == (days is None):
         raise ValueError("Specify exactly one of duration and days")
     if days is not None:
-        return units.to_si(days, u.day) * SECONDS_PER_DAY
-    return units.to_si(duration, units.TIME)
+        seconds = units.to_si(days, u.day) * SECONDS_PER_DAY
+    else:
+        seconds = units.to_si(duration, units.TIME)
+    if not isinstance(seconds, float):
+        raise TypeError("The propagation time must be a single value, not an array")
+    if not math.isfinite(seconds):
+        raise ValueError(f"The propagation time must be finite: {seconds} s")
+    return seconds
 
 
 def _default_n_points(orbit: Orbit, duration: float) -> int:
@@ -175,8 +202,16 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
     With method="auto", two-body uses the analytic (Kepler) solution; anything else uses DOP853.
     """
     body = orbit.body
-    duration = units.to_si(duration, units.TIME)
+    duration = resolve_duration(duration, None)
     terms = parse_model(model)
+    use_drag = "drag" in terms
+    if not use_drag:
+        ignored = [name for name, value in (("area", area), ("mass", mass), ("density", density))
+                   if value is not None]
+        if ignored:
+            warnings.warn(f"{', '.join(ignored)} given but the model {model_name(terms)!r} has no "
+                          f"drag term; use model='j2+drag' (or 'drag') to include drag",
+                          UserWarning, stacklevel=3)
     if n_points is not None and n_points < 2:
         raise ValueError(f"n_points must be at least 2 (start and end): {n_points}")
     if np.linalg.norm(orbit.r) < body.radius:
@@ -207,12 +242,14 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
             raise ValueError(f"J2 of {body.name} is zero")
         assumptions.append("J2 oblateness only (higher-order gravity ignored), spin axis = inertial z")
 
-    use_drag = "drag" in terms
     if use_drag:
         if area is None or mass is None:
             raise ValueError("The drag model needs area and mass")
         area_si = units.to_si(area, units.AREA)
         mass_si = units.to_si(mass, units.MASS)
+        for name, value in (("cd", cd), ("area", area_si), ("mass", mass_si)):
+            if not value > 0.0:
+                raise ValueError(f"{name} must be positive: {value}")
         ballistic = cd * area_si / mass_si
         if density is not None:
             rho: Environment = as_environment(density, units.DENSITY)

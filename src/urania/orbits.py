@@ -87,9 +87,26 @@ class Orbit:
     @classmethod
     def circular(cls, body: Body, altitude, *, inc=0.0, raan=0.0, arglat=0.0,
                  epoch: Epoch = J2000) -> Orbit:
-        """Circular orbit. altitude is above the equatorial radius; arglat is measured from the ascending node."""
+        """Circular orbit. altitude is above the equatorial radius.
+
+        arglat is the angle from the ascending node to the position (from the x axis for an
+        equatorial orbit).
+        """
         a = body.radius + units.to_si(altitude, units.LENGTH)
         return cls.from_elements(body, a=a, inc=inc, raan=raan, nu=arglat, epoch=epoch)
+
+    @classmethod
+    def from_apsides(cls, body: Body, periapsis_altitude, apoapsis_altitude, *, inc=0.0,
+                     raan=0.0, argp=0.0, nu=0.0, epoch: Epoch = J2000) -> Orbit:
+        """Elliptic orbit from its periapsis and apoapsis altitudes above the equatorial radius.
+
+        Example: a 400 x 600 km orbit is ``Orbit.from_apsides(Earth, 400 * u.km, 600 * u.km)``.
+        """
+        rp = body.radius + units.to_si(periapsis_altitude, units.LENGTH)
+        ra = body.radius + units.to_si(apoapsis_altitude, units.LENGTH)
+        a, ecc = _tb.apsides_to_ae(rp, ra)
+        return cls.from_elements(body, a=a, ecc=ecc, inc=inc, raan=raan, argp=argp, nu=nu,
+                                 epoch=epoch)
 
     # ---------------------------------------------------------- orbital elements
 
@@ -109,6 +126,7 @@ class Orbit:
 
     @property
     def ecc(self) -> float:
+        """Eccentricity."""
         return self.elements.ecc
 
     @property
@@ -210,6 +228,23 @@ class Orbit:
 
         return propagate(self, resolve_duration(duration, days), model=model, **kwargs)
 
+    def after(self, duration=None, *, days=None, model="twobody", **kwargs) -> Orbit:
+        """The orbit after propagating; shorthand for ``propagate(...).final``.
+
+        Raises if the propagation stops early (e.g. on reaching the surface) instead of
+        returning the orbit at the stopping point.
+
+        Example: ``ISS.after(days=1, model="j2")``
+        """
+        from .propagation import propagate, resolve_duration
+
+        duration = resolve_duration(duration, days)
+        tr = propagate(self, duration, model=model, **kwargs)
+        if tr.info.terminated:
+            raise RuntimeError(f"Propagation stopped early ({tr.info.terminated}) after "
+                               f"{tr.t[-1]:.1f} s of {duration:.1f} s")
+        return tr.final
+
     # ---------------------------------------------------------- maneuvers
 
     def transfer_to(self, target: Orbit, method: str = "hohmann", *, rb=None,
@@ -249,10 +284,21 @@ class Orbit:
 
 
 def sun_synchronous(altitude, *, ecc: float = 0.0, raan=0.0, epoch: Epoch = J2000,
-                    body: Body = Earth) -> Orbit:
-    """Sun-synchronous orbit. The inclination makes the J2 nodal rate 360° per tropical year."""
+                    body: Body = Earth, raan_rate=None) -> Orbit:
+    """Sun-synchronous orbit: the inclination makes the J2 nodal rate follow the Sun.
+
+    For Earth the nodal rate is 360° per tropical year. For another body pass its own rate,
+    360° per its orbital period around the Sun (e.g. Mars: ``2*pi / (686.98 * 86400)`` rad/s).
+    """
     a = body.radius + units.to_si(altitude, units.LENGTH)
-    inc = _j2.sso_inclination(a, ecc, body.mu, body.radius, body.J2, SSO_RAAN_RATE)
+    if raan_rate is None:
+        if body != Earth:
+            raise ValueError(f"Pass raan_rate for {body.name}: 360° per its orbital period "
+                             f"around the Sun, in rad/s (the default is Earth's year)")
+        rate = SSO_RAAN_RATE
+    else:
+        rate = units.to_si(raan_rate, units.ANGULAR_VELOCITY)
+    inc = _j2.sso_inclination(a, ecc, body.mu, body.radius, body.J2, rate)
     return Orbit.from_elements(body, a=a, ecc=ecc, inc=inc, raan=raan, epoch=epoch)
 
 

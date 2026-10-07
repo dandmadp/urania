@@ -51,3 +51,16 @@ def test_from_si():
     assert q.unit == u.km
     assert q.value == pytest.approx(7000.0)
     assert from_si(math.pi, units.ANGLE, u.deg).value == pytest.approx(180.0)
+
+
+def test_sequence_of_quantities():
+    """[7000 km, 0 km, 1 m] used to fail with an unclear astropy error."""
+    np.testing.assert_allclose(to_si([7000 * u.km, 0 * u.km, 1 * u.m], units.LENGTH), [7e6, 0.0, 1.0])
+    np.testing.assert_allclose(to_si((1 * u.km, 2 * u.km), units.LENGTH), [1e3, 2e3])
+
+
+def test_sequence_mixing_quantities_and_numbers_rejected():
+    with pytest.raises(UnitError, match="mixes"):
+        to_si([7000 * u.km, 0, 0], units.LENGTH)
+    with pytest.raises(UnitError, match="incompatible"):
+        to_si([7000 * u.km, 1 * u.s], units.LENGTH)

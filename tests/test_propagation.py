@@ -171,3 +171,46 @@ def test_rejects_start_below_surface():
 def test_rejects_non_model_types(model):
     with pytest.raises(TypeError):
         parse_model(model)
+
+
+@pytest.mark.parametrize("kwargs, names", [
+    ({"area": 10, "mass": 100}, "area, mass"),
+    ({"model": "j2", "density": 1e-12}, "density"),
+])
+def test_drag_inputs_without_drag_model_warn(kwargs, names):
+    """Drag inputs used to be ignored silently when the model had no drag term."""
+    with pytest.warns(UserWarning, match=names):
+        ISS.propagate(days=0.1, **kwargs)
+
+
+@pytest.mark.parametrize("bad", [{"cd": -2.2}, {"area": -1}, {"mass": -1}, {"mass": 0}])
+def test_drag_parameters_must_be_positive(bad):
+    kw = {"area": 1, "mass": 1, **bad}
+    with pytest.raises(ValueError, match="must be positive"):
+        ISS.propagate(days=0.1, model="drag", **kw)
+
+
+@pytest.mark.parametrize("duration", [float("inf"), float("nan")])
+def test_rejects_non_finite_duration(duration):
+    with pytest.raises(ValueError, match="finite"):
+        ISS.propagate(duration)
+
+
+def test_rejects_array_duration():
+    with pytest.raises(TypeError, match="single value"):
+        ISS.propagate([60.0, 120.0])
+
+
+def test_trajectory_elements_and_epochs():
+    tr = ISS.propagate(days=1, model="j2", n_points=25)
+    el = tr.elements
+    assert set(el) == {"p", "a", "ecc", "inc", "raan", "argp", "nu"}
+    assert el["a"].shape == (25,)
+    assert el["a"][0] == pytest.approx(ISS.a)
+    # J2 makes the node regress over the day
+    d_raan = (el["raan"][-1] - el["raan"][0] + math.pi) % (2 * math.pi) - math.pi
+    assert d_raan < 0
+    with pytest.raises(ValueError):
+        el["a"][0] = 0.0
+    assert tr.epochs[-1] == tr.final.epoch
+    assert len(tr.epochs) == len(tr)

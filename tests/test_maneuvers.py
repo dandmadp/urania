@@ -169,3 +169,16 @@ def test_repr_singular_burn():
     pc = Orbit.circular(Earth, 700e3, inc=1.7).transfer_to(Orbit.circular(Earth, 700e3, inc=1.5))
     assert repr(pc).endswith("1 burn)")
     assert repr(LEO.transfer_to(GEO)).endswith("2 burns)")
+
+
+def test_equal_bodies_need_not_be_the_same_object():
+    """A copy of Earth used to be rejected as a different central body."""
+    import dataclasses
+
+    start = Orbit.circular(dataclasses.replace(Earth), 500e3)
+    assert start.transfer_to(GEO).total_dv == pytest.approx(LEO.transfer_to(GEO).total_dv)
+
+
+def test_plane_split_typo_has_clear_message():
+    with pytest.raises(ValueError, match="'optimal' or a number"):
+        ISS.transfer_to(GEO, plane_split="Optimal")

@@ -83,7 +83,7 @@ def plot_orbit(orbit: Orbit, ax=None):
         ax.plot(orbit.r_periapsis / KM, 0, "^", color="C2", label="periapsis")
         if el.ecc < 1.0:
             ax.plot(-orbit.r_apoapsis / KM, 0, "v", color="C1", label="apoapsis")
-    _finish(ax, f"Orbit around {orbit.body.name}\na ={orbit.a / KM:,.0f} km, "
+    _finish(ax, f"Orbit around {orbit.body.name}\na = {orbit.a / KM:,.0f} km, "
                 f"e = {el.ecc:.3f}, i = {math.degrees(el.inc):.1f}°")
     return ax
 
@@ -168,7 +168,7 @@ def plot_transfer(t: Transfer, ax=None):
         ax.annotate(f"Δv{k + 1} = {burn.magnitude / KM:.3f} km/s", (bx[0], by[0]),
                     textcoords="offset points", xytext=(8, 8), fontsize="small")
 
-    title = f"{t.kind.replace('_', ' ').title()}\nΔv ={t.total_dv / KM:.3f} km/s, " \
+    title = f"{t.kind.replace('_', ' ').title()}\nΔv = {t.total_dv / KM:.3f} km/s, " \
             f"tof = {t.tof / 3600:.2f} h"
     if t.plane_change > 1e-9:
         title += f", plane change {math.degrees(t.plane_change):.2f}°"

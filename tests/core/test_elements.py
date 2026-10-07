@@ -107,3 +107,8 @@ def test_unreachable_true_anomaly_raises():
 def test_rectilinear_raises():
     with pytest.raises(ValueError):
         rv_to_coe([7000 * KM, 0, 0], [1000, 0, 0], MU_EARTH_VALLADO)
+
+
+def test_zero_position_rejected():
+    with pytest.raises(ValueError, match="position vector is zero"):
+        rv_to_coe([0.0, 0.0, 0.0], [0.0, 7000.0, 0.0], MU_EARTH_VALLADO)

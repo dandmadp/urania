@@ -24,3 +24,19 @@ def test_create_with_units():
 def test_immutable():
     with pytest.raises(AttributeError):
         Earth.mu = 1.0
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"mu": -1.0, "radius": 1e6},
+    {"mu": 1e14, "radius": 0.0},
+    {"mu": 1e14, "radius": 1e6, "flattening": 1.5},
+    {"mu": float("nan"), "radius": 1e6},
+])
+def test_invalid_body_rejected(kwargs):
+    with pytest.raises(ValueError):
+        Body.create("X", **kwargs)
+
+
+def test_flattening_presets():
+    assert Earth.flattening == pytest.approx(1 / 298.257223563)
+    assert 0 < Mars.flattening < 0.01

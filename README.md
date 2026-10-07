@@ -58,6 +58,10 @@ sv = ur.Orbit.from_vectors(ur.Earth, [6524.834, 6862.875, 6448.296] * u.km,
 
 print(sv.a, sv.ecc, sv.period)     # results are SI numbers: m, -, s
 print(sv.explain())                # how the elements follow from the state vector
+
+# a 400 x 600 km orbit, at a UTC epoch
+eo = ur.Orbit.from_apsides(ur.Earth, 400 * u.km, 600 * u.km, inc=51.6 * u.deg,
+                           epoch=ur.Epoch.from_utc("2026-10-08T00:00:00Z"))
 ```
 
 Presets: bodies `Sun`, `Earth`, `Moon`, `Mars`; orbits `LEO` (500 km), `ISS` (420 km, 51.64°), `SSO` (700 km sun-synchronous), `GEO`.
@@ -76,8 +80,13 @@ start = ur.Orbit.circular(ur.Earth, 400 * u.km, inc=51.6 * u.deg)
 tr = start.propagate(days=3, model="j2+drag", **cubesat)
 print(tr.final)                    # orbit after 3 days
 print(tr.info.assumptions)         # model and assumptions used
+print(tr.elements["raan"][-1])     # osculating elements at every sample, as arrays
 tr.plot(kind="altitude")           # altitude with an orbit-averaged line
+
+later = start.after(days=1, model="j2")   # just the orbit: shorthand for propagate(...).final
 ```
+
+Passing `area`, `mass` or `density` without a drag term in `model` gives a warning, since drag would otherwise be left out silently.
 
 You can inject environment data yourself: a constant, a function `f(r, t)`, or an `Environment` object.
 
@@ -144,7 +153,7 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
 - Perturbations: J2 and atmospheric drag. Lunar/solar perturbations, solar radiation pressure and higher-order gravity come later.
 - Atmosphere: Vallado's exponential model (mean solar activity), with height above the reference ellipsoid. Real density varies several-fold with solar activity.
 - Maneuvers: impulsive transfers between circular orbits. Rendezvous (phasing) and interplanetary transfers come later.
-- Time: TDB internally. UTC input goes through `Epoch.from_astropy()`.
+- Time: TDB internally. UTC goes through astropy: `Epoch.from_utc()`, `epoch.utc`, `Epoch.now()`.
 - Frames: fixed inertial axes (precession and nutation ignored). TLEs use TEME as is.
 - Plots: 2D only.
 

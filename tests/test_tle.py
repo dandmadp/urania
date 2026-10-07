@@ -155,3 +155,20 @@ def test_explain_and_plot(iss):
 
 def test_repr(iss):
     assert "25544" in repr(iss) and "rev/day" in repr(iss)
+
+
+def test_indented_tle_text():
+    """TLE text indented inside a triple-quoted string used to be rejected."""
+    text = "\n".join("        " + line for line in ISS_TEXT.splitlines())
+    tle = TLEOrbit.from_text(text)
+    assert tle.name == "ISS (ZARYA)"
+    assert tle.satnum == "25544"
+
+
+def test_period(iss):
+    assert iss.period / 60 == pytest.approx(1440 / iss.revs_per_day)
+
+
+def test_tle_rejects_too_few_points(iss):
+    with pytest.raises(ValueError, match="at least 2"):
+        iss.propagate(3600, n_points=1)

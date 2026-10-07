@@ -154,3 +154,15 @@
 - J2, atmospheric rotation and the ellipsoid all use the inertial z axis. GMAT uses the true pole of date, 7.69" from the J2000 z axis
   at the J2000 epoch, which gives a 144 m difference after 7 days in the J2 scenario (3.3 m once both use the same axis).
 - Not changed in this step; recorded here because it matters for state vectors given in the J2000 frame at epochs far from J2000.
+
+## D28. Input validation and convenience API (code review)
+- Inputs that used to give silently wrong results are now rejected: non-positive `cd`, `area`, `mass`; non-finite or array
+  durations; Bodies with non-positive μ or radius or a flattening outside [0, 1); `sun_synchronous` around a body other
+  than Earth without its own `raan_rate` (Earth's year was applied silently).
+- Drag inputs (`area`, `mass`, `density`) given to a model without a drag term raise a `UserWarning` rather than an error,
+  so the same keyword set can be reused across models.
+- Central bodies are compared by value, not identity, so a copy of Earth works in `transfer_to`.
+- Additions: `Epoch.from_utc`, `Epoch.utc`, `Epoch.now` (UTC through astropy, consistent with D7/D23),
+  `Orbit.from_apsides`, `Orbit.after` (shorthand for `propagate(...).final`, raises if the run stopped early),
+  `Trajectory.elements` and `Trajectory.epochs`, `TLEOrbit.period`, lists of Quantities in `units.to_si`,
+  indented TLE text.

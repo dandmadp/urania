@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from functools import cached_property
 
 import numpy as np
 from astropy.time import Time
@@ -73,8 +74,8 @@ class TLEOrbit:
 
     @classmethod
     def from_text(cls, text: str) -> TLEOrbit:
-        """From two-line or three-line (name first) TLE text."""
-        lines = [ln for ln in text.strip().splitlines() if ln.strip()]
+        """From two-line or three-line (name first) TLE text. Indentation is ignored."""
+        lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
         if len(lines) == 2:
             return cls(lines[0], lines[1])
         if len(lines) == 3:
@@ -91,7 +92,7 @@ class TLEOrbit:
         """NORAD catalog number."""
         return self.line1[2:7].strip()
 
-    @property
+    @cached_property
     def epoch(self) -> Epoch:
         """TLE epoch (converted to TDB)."""
         s = self._sat
@@ -131,6 +132,11 @@ class TLEOrbit:
     def revs_per_day(self) -> float:
         """Revolutions per day."""
         return self.mean_motion * SECONDS_PER_DAY / (2.0 * math.pi)
+
+    @property
+    def period(self) -> float:
+        """Orbital period from the mean motion [s]."""
+        return 2.0 * math.pi / self.mean_motion
 
     @property
     def bstar(self) -> float:
@@ -175,10 +181,11 @@ class TLEOrbit:
             n_points: number of output points. Defaults to 100 per orbit.
         """
         duration = resolve_duration(duration, days)
+        if n_points is not None and n_points < 2:
+            raise ValueError(f"n_points must be at least 2 (start and end): {n_points}")
         start = start or self.epoch
         if n_points is None:
-            period = 2.0 * math.pi / self.mean_motion
-            n_points = min(max(math.ceil(abs(duration) / period * 100) + 1, 101), 200001)
+            n_points = min(max(math.ceil(abs(duration) / self.period * 100) + 1, 101), 200001)
         t = np.linspace(0.0, duration, n_points)
         err, r, v = self.states(start.tdb_seconds + t)
 

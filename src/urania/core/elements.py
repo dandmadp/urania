@@ -61,6 +61,8 @@ def rv_to_coe(r, v, mu: float) -> Elements:
     v = np.asarray(v, dtype=float)
     r_norm = np.linalg.norm(r)
     v_norm = np.linalg.norm(v)
+    if r_norm == 0.0:
+        raise ValueError("The position vector is zero")
 
     h_vec = np.cross(r, v)
     h_norm = np.linalg.norm(h_vec)

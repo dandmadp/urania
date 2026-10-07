@@ -72,3 +72,16 @@ def test_j2_rates_reject_non_elliptic(a, ecc):
     """Hyperbolas and parabolas give a clear ValueError (regression test)."""
     with pytest.raises(ValueError, match="elliptic"):
         j2.raan_rate(a, ecc, 0.5, MU, R, J2)
+
+
+def test_apsides_to_ae():
+    a, e = twobody.apsides_to_ae(6778e3, 6978e3)
+    assert a == pytest.approx(6878e3)
+    assert e == pytest.approx(200e3 / 13756e3)
+    assert twobody.apsides_to_ae(7000e3, 7000e3) == (7000e3, 0.0)
+    with pytest.raises(ValueError):
+        twobody.apsides_to_ae(7000e3, 6000e3)
+
+
+def test_parabolic_energy_is_exactly_zero():
+    assert math.copysign(1.0, twobody.specific_energy(math.inf, MU)) == 1.0

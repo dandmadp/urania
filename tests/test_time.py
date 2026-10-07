@@ -71,3 +71,26 @@ def test_epoch_shift_must_be_scalar():
         J2000 + np.array([1.0, 2.0])
     with pytest.raises(TypeError):
         J2000 - [1.0, 2.0] * u.s
+
+
+def test_from_utc_and_utc_round_trip():
+    """2026: TDB - UTC = 69.184 s (37 leap seconds + 32.184 s); a trailing Z is accepted."""
+    t = Epoch.from_utc("2026-10-08T00:00:00Z")
+    assert t - Epoch.from_iso("2026-10-08T00:00:00") == pytest.approx(69.184, abs=0.002)
+    assert Epoch.from_utc("2026-10-08T00:00:00") == t
+    assert t.utc == "2026-10-08T00:00:00.000"
+
+
+def test_from_iso_with_time_zone_points_to_from_utc():
+    with pytest.raises(ValueError, match="from_utc"):
+        Epoch.from_iso("2026-10-08T00:00:00Z")
+
+
+def test_now_is_recent():
+    assert Epoch.now() > Epoch.from_iso("2026-01-01T00:00:00")
+
+
+def test_number_plus_epoch_and_epoch_plus_epoch():
+    assert 3600 + J2000 == J2000 + 3600
+    with pytest.raises(TypeError, match="subtract"):
+        J2000 + J2000

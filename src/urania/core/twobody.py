@@ -19,6 +19,8 @@ def mean_motion(a: float, mu: float) -> float:
 
 def specific_energy(a: float, mu: float) -> float:
     """Specific mechanical energy ε = -μ/(2a) [J/kg]. Zero for a parabola (a = inf)."""
+    if math.isinf(a):
+        return 0.0
     return -mu / (2.0 * a)
 
 
@@ -35,6 +37,16 @@ def circular_velocity(r: float, mu: float) -> float:
 def escape_velocity(r: float, mu: float) -> float:
     """Escape speed at radius r [m/s]."""
     return math.sqrt(2.0 * mu / r)
+
+
+def apsides_to_ae(r_periapsis: float, r_apoapsis: float) -> tuple[float, float]:
+    """Periapsis and apoapsis radii [m] → semi-major axis [m] and eccentricity.
+
+    a = (r_p + r_a)/2,  e = (r_a - r_p)/(r_a + r_p)
+    """
+    if not 0.0 < r_periapsis <= r_apoapsis:
+        raise ValueError(f"Need 0 < r_periapsis <= r_apoapsis: {r_periapsis}, {r_apoapsis}")
+    return 0.5 * (r_periapsis + r_apoapsis), (r_apoapsis - r_periapsis) / (r_apoapsis + r_periapsis)
 
 
 def synchronous_radius(mu: float, rotation_rate: float) -> float:

@@ -4,7 +4,7 @@ import astropy.units as u
 import numpy as np
 import pytest
 
-from urania import GEO, ISS, LEO, SSO, Earth, Epoch, Orbit, sun_synchronous
+from urania import GEO, ISS, LEO, SSO, Earth, Epoch, Mars, Orbit, sun_synchronous
 
 DAY = 86400.0
 
@@ -103,3 +103,46 @@ def test_rejects_negative_eccentricity():
     """ecc=-0.1 used to silently build an e=0.1 orbit (regression test)."""
     with pytest.raises(ValueError, match="non-negative"):
         Orbit.from_elements(Earth, a=7e6, ecc=-0.1)
+
+
+def test_from_apsides():
+    o = Orbit.from_apsides(Earth, 400 * u.km, 600 * u.km, inc=51.6 * u.deg)
+    assert o.periapsis_altitude == pytest.approx(400e3)
+    assert o.apoapsis_altitude == pytest.approx(600e3)
+    assert math.degrees(o.inc) == pytest.approx(51.6)
+    with pytest.raises(ValueError):
+        Orbit.from_apsides(Earth, 600 * u.km, 400 * u.km)
+
+
+def test_from_vectors_with_lists_of_quantities():
+    o = Orbit.from_vectors(Earth, [6524.834 * u.km, 6862.875 * u.km, 6448.296 * u.km],
+                           [4.901327 * u.km / u.s, 5.533756 * u.km / u.s, -1.976341 * u.km / u.s])
+    assert o.ecc == pytest.approx(0.832853, abs=1e-6)
+
+
+def test_after_is_final_orbit():
+    a = ISS.after(days=1, model="j2")
+    b = ISS.propagate(days=1, model="j2").final
+    np.testing.assert_allclose(a.r, b.r, atol=1e-3)
+    assert a.epoch == b.epoch
+
+
+def test_after_raises_when_propagation_stops():
+    with pytest.raises(RuntimeError, match="stopped early"):
+        Orbit.circular(Earth, 130e3).after(days=5, model="drag", area=1, mass=1)
+
+
+def test_after_catches_surface_crossing_between_endpoints():
+    """A suborbital arc that dips below the surface and comes back up must not be missed."""
+    sub = Orbit.from_elements(Earth, a=6000e3, ecc=0.2, nu=math.radians(180))
+    with pytest.raises(RuntimeError, match="stopped early"):
+        sub.after(sub.period)
+
+
+def test_sun_synchronous_other_body_needs_rate():
+    """Around Mars the Earth year used to be applied silently (regression test)."""
+    with pytest.raises(ValueError, match="raan_rate"):
+        sun_synchronous(300 * u.km, body=Mars)
+    rate = 2 * math.pi / (686.98 * DAY)
+    o = sun_synchronous(300 * u.km, body=Mars, raan_rate=rate)
+    assert o.raan_rate == pytest.approx(rate)

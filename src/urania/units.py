@@ -33,12 +33,21 @@ def to_si(value, si_unit: u.UnitBase):
     """Convert an input value to an SI number.
 
     Args:
-        value: astropy Quantity, number, or sequence of numbers
+        value: astropy Quantity, number, or a sequence of numbers or of Quantities
+            (e.g. ``[7000 * u.km, 0 * u.km, 0 * u.km]``)
         si_unit: SI unit of the expected quantity (e.g. `LENGTH`)
 
     Returns:
         float for scalars, otherwise a numpy array
     """
+    if isinstance(value, (list, tuple)) and any(isinstance(x, u.Quantity) for x in value):
+        if not all(isinstance(x, u.Quantity) for x in value):
+            raise UnitError("A sequence mixes Quantities and plain numbers; give every value "
+                            "with a unit, or none")
+        try:
+            value = u.Quantity(value)
+        except u.UnitConversionError as exc:
+            raise UnitError(f"The values in the sequence have incompatible units: {exc}") from exc
     if isinstance(value, u.Quantity):
         try:
             # Allow temperature equivalencies for offset conversions such as Celsius → Kelvin

@@ -122,7 +122,7 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
     if method not in ("hohmann", "bielliptic"):
         raise ValueError(f"Unknown transfer method: {method!r} (hohmann, bielliptic)")
     body = initial.body
-    if target.body is not body:
+    if target.body != body:
         raise ValueError(f"Central bodies differ: {body.name} → {target.body.name}")
     for name, o in (("initial", initial), ("target", target)):
         if o.ecc > CIRCULAR_ECC_TOL:
@@ -180,7 +180,11 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
             if not coplanar:
                 assumptions.append(f"plane change split minimizes total Δv (first burn {split:.3f})")
         else:
-            split = float(plane_split)
+            try:
+                split = float(plane_split)
+            except (TypeError, ValueError):
+                raise ValueError(f"plane_split must be 'optimal' or a number from 0 to 1: "
+                                 f"{plane_split!r}") from None
             if not 0.0 <= split <= 1.0:
                 raise ValueError(f"plane_split must be between 0 and 1: {split}")
         plan = [(r2, tilt(split), "burn 1: enter transfer orbit"),
