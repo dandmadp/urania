@@ -19,6 +19,8 @@ pip install -e ".[dev]"
 pytest
 ```
 
+Tested on Python 3.10 to 3.13, with both the newest and the oldest allowed dependency versions.
+
 ## Quick start
 
 The Δv needed to go from the ISS orbit to geostationary orbit (GEO):

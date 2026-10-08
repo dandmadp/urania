@@ -8,13 +8,15 @@ For parabolas, the "mean anomaly" is the M in Barker's equation M = D + D³/3 (D
 
 import math
 
+import numpy as np
+
 TWO_PI = 2.0 * math.pi
 
 # Eccentricity tolerance for treating an orbit as parabolic
 PARABOLIC_TOL = 1e-12
 
 _NEWTON_TOL = 1e-14
-_NEWTON_MAXITER = 50
+_NEWTON_MAXITER = 100
 
 
 def _wrap_2pi(angle: float) -> float:
@@ -29,16 +31,77 @@ def _wrap_pi(angle: float) -> float:
     return (angle + math.pi) % TWO_PI - math.pi
 
 
+def _cbrt(x: float) -> float:
+    """Real cube root (math.cbrt needs Python 3.11; numpy's cbrt is the same C routine)."""
+    return float(np.cbrt(x))
+
+
 def _check_ecc(e: float) -> None:
     if e < 0.0:
         raise ValueError(f"Eccentricity must be non-negative: e={e}")
 
 
+def _x_minus_sin(x: float) -> float:
+    """x - sin x without cancellation for small |x| (series x³/3! - x⁵/5! + ...)."""
+    if abs(x) > 0.5:
+        return x - math.sin(x)
+    x2 = x * x
+    term = x * x2 / 6.0
+    total = term
+    n = 3
+    while abs(term) > 1e-17 * abs(total):
+        term *= -x2 / ((n + 1) * (n + 2))
+        total += term
+        n += 2
+    return total
+
+
+def _sinh_minus_x(x: float) -> float:
+    """sinh x - x without cancellation for small |x| (series x³/3! + x⁵/5! + ...)."""
+    if abs(x) > 0.5:
+        return math.sinh(x) - x
+    x2 = x * x
+    term = x * x2 / 6.0
+    total = term
+    n = 3
+    while abs(term) > 1e-17 * abs(total):
+        term *= x2 / ((n + 1) * (n + 2))
+        total += term
+        n += 2
+    return total
+
+
 # ---------------------------------------------------------------- ellipse (e < 1)
 
 def eccentric_to_mean(E: float, e: float) -> float:
-    """Eccentric anomaly E → mean anomaly M (Kepler's equation M = E - e sin E)."""
-    return E - e * math.sin(E)
+    """Eccentric anomaly E → mean anomaly M (Kepler's equation M = E - e sin E).
+
+    Evaluated as (1 - e) E + e (E - sin E) on the branch nearest zero, which stays accurate for
+    nearly parabolic orbits near periapsis. The result is on the same branch as E.
+    """
+    E_near = _wrap_pi(E)
+    return (1.0 - e) * E_near + e * _x_minus_sin(E_near) + (E - E_near)
+
+
+def _mean_to_eccentric_signed(M: float, e: float) -> float:
+    """Solve Kepler's equation for E in [-π, π] given M (wrapped to [-π, π))."""
+    _check_ecc(e)
+    if e >= 1.0:
+        raise ValueError(f"Only elliptic orbits (e < 1) are allowed: e={e}")
+    M = _wrap_pi(M)
+    if e > 0.8:
+        # Near-parabolic start: from (1-e)E + eE³/6 ≈ M; π for large M (Vallado algorithm 2)
+        E = math.copysign(min(math.pi, _cbrt(6.0 * abs(M) / e)), M)
+    else:
+        E = M + e if M >= 0.0 else M - e
+    for _ in range(_NEWTON_MAXITER):
+        f = (1.0 - e) * E + e * _x_minus_sin(E) - M
+        fp = (1.0 - e) + 2.0 * e * math.sin(0.5 * E) ** 2      # 1 - e cos E without cancellation
+        dE = f / fp
+        E = min(max(E - dE, -math.pi), math.pi)
+        if abs(dE) <= _NEWTON_TOL * max(1.0, abs(E)) or (abs(dE) <= 1e-12 * abs(E) and E != 0.0):
+            return E
+    raise RuntimeError(f"Kepler's equation did not converge: M={M}, e={e}")
 
 
 def mean_to_eccentric(M: float, e: float) -> float:
@@ -46,20 +109,7 @@ def mean_to_eccentric(M: float, e: float) -> float:
 
     The result is in [0, 2π).
     """
-    _check_ecc(e)
-    if e >= 1.0:
-        raise ValueError(f"Only elliptic orbits (e < 1) are allowed: e={e}")
-    M = _wrap_pi(M)
-    # For large e a start near M can diverge, so start from π (Vallado algorithm 2)
-    E = M + e if M >= 0.0 else M - e
-    if e > 0.8:
-        E = math.pi if M >= 0.0 else -math.pi
-    for _ in range(_NEWTON_MAXITER):
-        dE = (E - e * math.sin(E) - M) / (1.0 - e * math.cos(E))
-        E -= dE
-        if abs(dE) < _NEWTON_TOL:
-            return _wrap_2pi(E)
-    raise RuntimeError(f"Kepler's equation did not converge: M={M}, e={e}")
+    return _wrap_2pi(_mean_to_eccentric_signed(M, e))
 
 
 def eccentric_to_true(E: float, e: float) -> float:
@@ -79,20 +129,28 @@ def true_to_eccentric(nu: float, e: float) -> float:
 # -------------------------------------------------------------- hyperbola (e > 1)
 
 def hyperbolic_to_mean(H: float, e: float) -> float:
-    """Hyperbolic anomaly H → mean anomaly M (M = e sinh H - H)."""
-    return e * math.sinh(H) - H
+    """Hyperbolic anomaly H → mean anomaly M (M = e sinh H - H).
+
+    Evaluated as (e - 1) H + e (sinh H - H), accurate for nearly parabolic orbits.
+    """
+    return (e - 1.0) * H + e * _sinh_minus_x(H)
 
 
 def mean_to_hyperbolic(M: float, e: float) -> float:
     """Mean anomaly M → hyperbolic anomaly H, by Newton's method."""
     if e <= 1.0:
         raise ValueError(f"Only hyperbolic orbits (e > 1) are allowed: e={e}")
-    # For large |M|, e sinh H ≈ M, so start from a logarithmic estimate
-    H = math.copysign(math.log(2.0 * abs(M) / e + 1.8), M) if M != 0.0 else 0.0
+    if M == 0.0:
+        return 0.0
+    # Upper bounds of the root: cubic estimate for small |M|, logarithm (e sinh H ≈ M) for large |M|.
+    # Newton then converges monotonically because the function is convex for H > 0.
+    H = math.copysign(min(_cbrt(6.0 * abs(M) / e), math.log(2.0 * abs(M) / e + 1.8)), M)
     for _ in range(_NEWTON_MAXITER):
-        dH = (e * math.sinh(H) - H - M) / (e * math.cosh(H) - 1.0)
+        f = (e - 1.0) * H + e * _sinh_minus_x(H) - M
+        fp = (e - 1.0) + 2.0 * e * math.sinh(0.5 * H) ** 2     # e cosh H - 1 without cancellation
+        dH = f / fp
         H -= dH
-        if abs(dH) < _NEWTON_TOL * max(1.0, abs(H)):
+        if abs(dH) <= _NEWTON_TOL * max(1.0, abs(H)) or abs(dH) <= 1e-12 * abs(H):
             return H
     raise RuntimeError(f"Hyperbolic Kepler equation did not converge: M={M}, e={e}")
 
@@ -126,7 +184,7 @@ def mean_to_parabolic(M: float) -> float:
     # Unique real root of D³ + 3D - 3M = 0 (Cardano): D = ∛(w+s) + ∛(w-s).
     # Since (w+s)(w-s) = -1, ∛(w-s) = -1/∛(w+s). Computing w-s directly cancels badly for large |w|.
     w = 1.5 * abs(M)
-    c = math.cbrt(w + math.sqrt(w * w + 1.0))
+    c = _cbrt(w + math.sqrt(w * w + 1.0))
     return math.copysign(c - 1.0 / c, M)
 
 

@@ -4,7 +4,8 @@ import numpy as np
 import pytest
 
 from urania.core import forces
-from urania.core.propagate import cowell, kepler_propagate, kepler_states
+from urania.core import elements as el
+from urania.core.propagate import cowell, kepler_propagate, kepler_states, stumpff
 
 KM = 1e3
 MU = 398600.4418 * KM**3
@@ -91,3 +92,41 @@ def test_cowell_zero_duration():
     res = cowell(r0, v0, 0.0, _twobody, t_eval=np.zeros(5))
     assert res.r.shape == (5, 3)
     np.testing.assert_array_equal(res.r[-1], r0)
+
+
+def test_stumpff_values():
+    """c2(0) = 1/2, c3(0) = 1/6; at ψ = π²: c2 = 2/π², c3 = 1/π²; smooth across ψ = 0."""
+    assert stumpff(0.0) == (0.5, 1.0 / 6.0)
+    c2, c3 = stumpff(math.pi**2)
+    assert c2 == pytest.approx(2 / math.pi**2) and c3 == pytest.approx(1 / math.pi**2)
+    for psi in (1e-12, -1e-12, 1e-6, -1e-6):
+        c2, c3 = stumpff(psi)
+        assert c2 == pytest.approx(0.5 - psi / 24, rel=1e-12)
+        assert c3 == pytest.approx(1 / 6 - psi / 120, rel=1e-12)
+    c2, c3 = stumpff(-4.0)   # y = 2: (cosh 2 - 1)/4, (sinh 2 - 2)/8
+    assert c2 == pytest.approx((math.cosh(2) - 1) / 4) and c3 == pytest.approx((math.sinh(2) - 2) / 8)
+
+
+@pytest.mark.parametrize("e", [1 - 1e-6, 1 - 1e-9, 1 - 1e-11, 1 + 1e-11, 1 + 1e-9, 1 + 1e-6])
+def test_nearly_parabolic_propagation(e):
+    """Nearly parabolic orbits used to be off by up to hundreds of km (element-based Kepler).
+
+    Universal variables must agree with numerical integration and round-trip forward/backward.
+    """
+    rp = 7000e3
+    r0, v0 = el.coe_to_rv(rp * (1 + e), e, 0.7, 1.1, 0.4, -1.0, MU)
+    r1, v1 = kepler_propagate(r0, v0, 3000.0, MU)
+    res = cowell(r0, v0, 3000.0, _twobody)
+    assert np.linalg.norm(res.r[-1] - r1) < 0.05
+    r2, _ = kepler_propagate(r1, v1, -3000.0, MU)
+    assert np.linalg.norm(r2 - r0) < 1e-3
+
+
+def test_many_revolutions_match_integration():
+    """Elliptic propagation over 200 revolutions: the period reduction keeps the result exact."""
+    r0, v0 = np.array([7000e3, 0.0, 0.0]), np.array([0.0, 8000.0, 1000.0])
+    a = 1 / (2 / 7000e3 - (8000**2 + 1000**2) / MU)
+    T = 2 * math.pi * math.sqrt(a**3 / MU)
+    r, v = kepler_propagate(r0, v0, 200 * T + 1234.5, MU)
+    r_ref, v_ref = kepler_propagate(r0, v0, 1234.5, MU)
+    assert np.linalg.norm(r - r_ref) < 1e-3

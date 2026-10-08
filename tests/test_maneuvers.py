@@ -182,3 +182,29 @@ def test_equal_bodies_need_not_be_the_same_object():
 def test_plane_split_typo_has_clear_message():
     with pytest.raises(ValueError, match="'optimal' or a number"):
         ISS.transfer_to(GEO, plane_split="Optimal")
+
+
+def test_plane_split_all_at_first_burn():
+    """plane_split=1 puts the whole plane change on burn 1 (formula cross-check)."""
+    tr = ISS.transfer_to(GEO, plane_split=1.0)
+    dv1, dv2, _ = core_m.hohmann_plane_change(ISS.a, GEO.a, tr.plane_change, Earth.mu, 1.0)
+    assert tr.burns[0].magnitude == pytest.approx(dv1, rel=1e-9)
+    assert tr.burns[1].magnitude == pytest.approx(dv2, rel=1e-9)
+    assert tr.explain().warnings == []
+    _check_on_target(tr)
+
+
+def test_explain_mentions_coast():
+    start = Orbit.circular(Earth, 500e3, inc=30 * u.deg, raan=20 * u.deg, arglat=100 * u.deg)
+    target = Orbit.circular(Earth, 2000e3, inc=50 * u.deg, raan=80 * u.deg)
+    tr = start.transfer_to(target)
+    assert f"coast to the node: {tr.coast:,.1f} s" in str(tr.explain())
+
+
+def test_no_transfer_plot_and_times():
+    import matplotlib.pyplot as plt
+
+    tr = LEO.transfer_to(LEO)
+    assert tr.tof == 0.0 and tr.coast == 0.0
+    assert tr.plot().get_title().startswith("None")
+    plt.close("all")

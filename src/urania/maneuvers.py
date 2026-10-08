@@ -209,7 +209,7 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
     epoch = initial.epoch + coast
     r, v = _prop.kepler_propagate(initial.r, initial.v, coast, mu)
     burns, orbits = [], []
-    for (r_next, normal, desc), d_plane in zip(plan, plane_parts):
+    for (r_next, normal, desc), d_plane in zip(plan, plane_parts, strict=True):
         r_now = np.linalg.norm(r)
         direction = _unit(np.cross(normal, r))
         if r_next is None:

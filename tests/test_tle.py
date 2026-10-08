@@ -172,3 +172,10 @@ def test_period(iss):
 def test_tle_rejects_too_few_points(iss):
     with pytest.raises(ValueError, match="at least 2"):
         iss.propagate(3600, n_points=1)
+
+
+def test_states_accepts_epoch_list(iss):
+    e0 = iss.epoch
+    err, r, v = iss.states([e0, e0 + 60.0])
+    assert list(err) == [0, 0]
+    np.testing.assert_allclose(r[1], iss.state_at(e0 + 60.0)[0])

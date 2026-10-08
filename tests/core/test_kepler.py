@@ -82,3 +82,18 @@ def test_barker_large_M_precision(M):
     """No cancellation error in Cardano's formula for large M (regression test)."""
     D = k.mean_to_parabolic(M)
     assert k.parabolic_to_mean(D) == pytest.approx(M, rel=1e-13)
+
+
+@pytest.mark.parametrize("M, e", [(4.409805853811122e-13, 0.9999999920333831), (1e-10, 1 - 1e-12 * 5),
+                                  (-3e-12, 0.99999999), (3.0, 0.999999999)])
+def test_nearly_parabolic_kepler_converges(M, e):
+    """These used to raise "Kepler's equation did not converge" (cancellation in E - e sin E)."""
+    E = k._mean_to_eccentric_signed(M, e)
+    assert (1 - e) * E + e * (E - math.sin(E)) == pytest.approx(M, rel=1e-9, abs=1e-15)
+
+
+@pytest.mark.parametrize("M", [1e-14, -1e-9, 1e-5, 0.3])
+def test_nearly_parabolic_hyperbolic_kepler(M):
+    e = 1 + 1e-10
+    H = k.mean_to_hyperbolic(M, e)
+    assert k.hyperbolic_to_mean(H, e) == pytest.approx(M, rel=1e-10)

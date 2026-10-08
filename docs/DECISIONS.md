@@ -166,3 +166,22 @@
   `Orbit.from_apsides`, `Orbit.after` (shorthand for `propagate(...).final`, raises if the run stopped early),
   `Trajectory.elements` and `Trajectory.epochs`, `TLEOrbit.period`, lists of Quantities in `units.to_si`,
   indented TLE text.
+
+## D29. Analytic two-body propagation uses universal variables (bug hunt)
+- Randomized tests found that the element-based Kepler solution was off by hundreds of meters to hundreds of
+  kilometers for nearly parabolic orbits (|1 - e| below about 1e-6): the digits of 1 - e, a and the mean motion are lost.
+  It also failed to converge (RuntimeError) for some of them.
+- `kepler_states` now uses universal variables with Stumpff functions (Curtis algorithm 3.4, Vallado algorithm 8),
+  solved by the Laguerre-Conway iteration. One formula covers all conics; elliptic times are reduced modulo the period.
+  GMAT and textbook results are unchanged.
+- The anomaly functions in `core.kepler` evaluate E - e sin E and e sinh H - H without cancellation and start
+  Newton's method from a cubic estimate, so they converge for nearly parabolic orbits. The public `true_to_mean`
+  still returns elliptic M in [0, 2π); near periapsis of a nearly parabolic orbit that wrapping limits the precision
+  of a round trip through M, which the propagation path avoids.
+
+## D30. Python 3.10 support is tested (bug hunt)
+- 0.0.1 declared Python 3.10 but was only tested on 3.11. On 3.10 `math.cbrt` does not exist (parabolic orbits crashed)
+  and `datetime.fromisoformat` rejects fractional seconds that are not 3 or 6 digits.
+  Fixed with `numpy.cbrt` and a small ISO normalizer.
+- GitHub Actions runs the tests on Python 3.10 to 3.13 (Linux), 3.11 on Windows, and 3.10 with the oldest
+  dependency versions allowed by pyproject.toml (`uv --resolution lowest-direct`).

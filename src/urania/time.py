@@ -10,6 +10,7 @@ date difference gives exact elapsed seconds.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -18,6 +19,22 @@ from . import units
 SECONDS_PER_DAY = 86400.0
 JD_J2000 = 2451545.0
 _DT_J2000 = datetime(2000, 1, 1, 12, 0, 0)
+
+
+_FRACTION = re.compile(r"(\d{2}:\d{2}:\d{2})\.(\d+)")
+_TIME_ZONE = re.compile(r"(?:[zZ]|[+-]\d{2}:?\d{2})$")
+
+
+def _parse_iso(text: str) -> datetime:
+    """datetime.fromisoformat that accepts any number of fractional-second digits on Python 3.10."""
+    text = text.strip()
+    if "T" in text[10:] or " " in text[10:]:
+        clock = text[11:]
+        if _TIME_ZONE.search(clock):
+            raise ValueError(f"from_iso reads TDB and takes no time zone: {text!r}. "
+                             "For a UTC time use Epoch.from_utc()")
+    text = _FRACTION.sub(lambda m: f"{m.group(1)}.{m.group(2)[:6].ljust(6, '0')}", text)
+    return datetime.fromisoformat(text)
 
 
 def _scalar_seconds(dt) -> float:
@@ -40,7 +57,7 @@ class Epoch:
     @classmethod
     def from_iso(cls, text: str) -> Epoch:
         """From an ISO 8601 string (TDB), e.g. "2026-10-07T12:00:00"."""
-        dt = datetime.fromisoformat(text)
+        dt = _parse_iso(text)
         if dt.tzinfo is not None:
             raise ValueError(f"from_iso reads TDB and takes no time zone: {text!r}. "
                              "For a UTC time use Epoch.from_utc()")
@@ -91,8 +108,10 @@ class Epoch:
 
     @property
     def utc(self) -> str:
-        """ISO 8601 string in UTC (millisecond resolution), converted by astropy."""
-        return self.to_astropy().utc.isot
+        """ISO 8601 string in UTC (microsecond resolution, like `iso`), converted by astropy."""
+        t = self.to_astropy().utc
+        t.precision = 6
+        return t.isot
 
     def to_astropy(self):
         """Convert to astropy Time(scale='tdb')."""

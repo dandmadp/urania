@@ -124,7 +124,7 @@ class Trajectory:
 
         Keys: p, a, ecc, inc, raan, argp, nu. Angles are not unwrapped.
         """
-        els = [_el.rv_to_coe(r, v, self.body.mu) for r, v in zip(self.r, self.v)]
+        els = [_el.rv_to_coe(r, v, self.body.mu) for r, v in zip(self.r, self.v, strict=True)]
         out = {name: np.array([getattr(e, name) for e in els])
                for name in ("p", "a", "ecc", "inc", "raan", "argp", "nu")}
         for arr in out.values():

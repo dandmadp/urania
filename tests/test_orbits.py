@@ -146,3 +146,26 @@ def test_sun_synchronous_other_body_needs_rate():
     rate = 2 * math.pi / (686.98 * DAY)
     o = sun_synchronous(300 * u.km, body=Mars, raan_rate=rate)
     assert o.raan_rate == pytest.approx(rate)
+
+
+def test_mean_anomaly_matches_kepler_equation():
+    """M = E - e sin E with E from tan(ν/2) = √((1+e)/(1-e)) tan(E/2)."""
+    o = Orbit.from_elements(Earth, a=10000e3, ecc=0.3, nu=math.radians(100))
+    E = 2 * math.atan(math.sqrt(0.7 / 1.3) * math.tan(math.radians(50)))
+    assert o.M == pytest.approx(E - 0.3 * math.sin(E))
+
+
+def test_argp_rate_formula():
+    """dω/dt = (3/4) n J2 (R/p)² (5 cos²i - 1), and it vanishes at the critical inclination."""
+    o = Orbit.from_elements(Earth, a=8000e3, ecc=0.1, inc=math.radians(30))
+    n = math.sqrt(Earth.mu / 8000e3**3)
+    p = 8000e3 * (1 - 0.01)
+    expected = 0.75 * n * Earth.J2 * (Earth.radius / p) ** 2 * (5 * math.cos(math.radians(30)) ** 2 - 1)
+    assert o.argp_rate == pytest.approx(expected)
+    crit = Orbit.from_elements(Earth, a=26600e3, ecc=0.74, inc=math.acos(math.sqrt(0.2)))
+    assert crit.argp_rate == pytest.approx(0.0, abs=1e-20)
+
+
+def test_repr_of_body_and_epoch():
+    assert repr(Earth) == "Body('Earth', R=6378.1 km)"
+    assert repr(Epoch.from_iso("2026-01-01T00:00:00")) == "Epoch('2026-01-01T00:00:00' TDB)"

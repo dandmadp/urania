@@ -78,7 +78,10 @@ def test_from_utc_and_utc_round_trip():
     t = Epoch.from_utc("2026-10-08T00:00:00Z")
     assert t - Epoch.from_iso("2026-10-08T00:00:00") == pytest.approx(69.184, abs=0.002)
     assert Epoch.from_utc("2026-10-08T00:00:00") == t
-    assert t.utc == "2026-10-08T00:00:00.000"
+    assert t.utc == "2026-10-08T00:00:00.000000"
+    # microsecond resolution: a round trip through the string keeps the time to 1 µs
+    t2 = t + 0.1234567
+    assert abs(Epoch.from_utc(t2.utc) - t2) < 1e-6
 
 
 def test_from_iso_with_time_zone_points_to_from_utc():
@@ -94,3 +97,21 @@ def test_number_plus_epoch_and_epoch_plus_epoch():
     assert 3600 + J2000 == J2000 + 3600
     with pytest.raises(TypeError, match="subtract"):
         J2000 + J2000
+
+
+@pytest.mark.parametrize("text, iso", [
+    ("2026-10-07T12:34:56.5", "2026-10-07T12:34:56.500000"),
+    ("2026-10-07T12:34:56.123456789", "2026-10-07T12:34:56.123456"),
+    ("2026-10-07 01:02:03", "2026-10-07T01:02:03"),
+    ("2026-10-07", "2026-10-07T00:00:00"),
+])
+def test_from_iso_formats(text, iso):
+    """Python 3.10's fromisoformat rejects some of these; urania normalizes them (regression test)."""
+    assert Epoch.from_iso(text).iso == iso
+
+
+@pytest.mark.parametrize("text", ["2026-10-08T00:00:00Z", "2026-10-08T00:00:00+09:00",
+                                  "2026-10-08T00:00:00-0500"])
+def test_from_iso_rejects_any_time_zone(text):
+    with pytest.raises(ValueError, match="from_utc"):
+        Epoch.from_iso(text)

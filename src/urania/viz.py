@@ -162,7 +162,7 @@ def plot_transfer(t: Transfer, ax=None):
         x, y = _project(r, fx, fy)
         ax.plot(x, y, color="C1", lw=2, label="transfer" if k == 0 else None)
 
-    for k, (burn, orbit) in enumerate(zip(t.burns, t.orbits)):
+    for k, (burn, orbit) in enumerate(zip(t.burns, t.orbits, strict=True)):
         bx, by = _project(burn.r[None, :], *frame(orbit))
         ax.plot(bx, by, "*", color="C3", ms=12, label="burn" if k == 0 else None)
         ax.annotate(f"Δv{k + 1} = {burn.magnitude / KM:.3f} km/s", (bx[0], by[0]),

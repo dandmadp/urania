@@ -214,3 +214,24 @@ def test_trajectory_elements_and_epochs():
         el["a"][0] = 0.0
     assert tr.epochs[-1] == tr.final.epoch
     assert len(tr.epochs) == len(tr)
+
+
+def test_hyperbola_default_sampling_and_energy():
+    """A hyperbolic escape gets 1001 points by default; two-body integration conserves energy."""
+    hyp = Orbit.from_elements(Earth, a=-20000e3, ecc=1.5)
+    tr = hyp.propagate(days=1, method="DOP853")
+    assert len(tr) == 1001
+    energy = [np.linalg.norm(v) ** 2 / 2 - Earth.mu / np.linalg.norm(r) for r, v in zip(tr.r, tr.v)]
+    assert max(energy) - min(energy) < 1e-7 * abs(energy[0])
+
+
+def test_kepler_method_only_for_twobody():
+    with pytest.raises(ValueError, match="only available"):
+        ISS.propagate(3600, model="j2", method="kepler")
+
+
+def test_j2_needs_nonzero_j2():
+    from urania import Sun
+
+    with pytest.raises(ValueError, match="J2 of Sun is zero"):
+        Orbit.circular(Sun, 1e9).propagate(days=1, model="j2")
