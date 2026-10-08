@@ -23,15 +23,15 @@ jobs:
             python: "3.11"
             resolution: highest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      # With python-version, setup-uv creates and activates a virtual environment
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python }}
       - name: Install
-        run: uv pip install --system --resolution ${{ matrix.resolution }} ".[dev]"
-        env:
-          UV_SYSTEM_PYTHON: "1"
+        run: uv pip install --resolution ${{ matrix.resolution }} ".[dev]" pytest-github-actions-annotate-failures
       - name: Test
-        run: python -m pytest -q
+        run: python -m pytest -q -rf
         env:
           MPLBACKEND: Agg
+          PYTHONIOENCODING: utf-8
