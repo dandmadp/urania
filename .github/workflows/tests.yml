@@ -24,14 +24,17 @@ jobs:
             resolution: highest
     steps:
       - uses: actions/checkout@v5
-      # With python-version, setup-uv creates and activates a virtual environment
+      # Install the requested Python and create + activate a virtual environment (.venv)
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python }}
+          activate-environment: true
       - name: Install
         run: uv pip install --resolution ${{ matrix.resolution }} ".[dev]" pytest-github-actions-annotate-failures
+      - name: Versions
+        run: uv run --no-project python -c "import sys, numpy, scipy, astropy, matplotlib, sgp4, urania; print(sys.version, numpy.__version__, scipy.__version__, astropy.__version__, matplotlib.__version__, sgp4.__version__, urania.__file__)"
       - name: Test
-        run: python -m pytest -q -rf
+        run: uv run --no-project python -m pytest -q -rf
         env:
           MPLBACKEND: Agg
           PYTHONIOENCODING: utf-8
