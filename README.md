@@ -4,7 +4,7 @@
 
 urania is a Python library for people who are not professionals but want to compute orbits seriously: CubeSat teams, students, space simulation game players. Every result records the model and assumptions it was computed with, and `.explain()` walks through the formulas and intermediate values step by step.
 
-> Status: MVP in development (v0.0.1). Design: [SPEC.md](https://github.com/dandmadp/urania/blob/main/SPEC.md). Design decisions: [docs/DECISIONS.md](https://github.com/dandmadp/urania/blob/main/docs/DECISIONS.md).
+> Status: MVP in development (v0.0.2, [changelog](https://github.com/dandmadp/urania/blob/main/CHANGELOG.md)). Design: [SPEC.md](https://github.com/dandmadp/urania/blob/main/SPEC.md). Design decisions: [docs/DECISIONS.md](https://github.com/dandmadp/urania/blob/main/docs/DECISIONS.md).
 
 ## Installation
 

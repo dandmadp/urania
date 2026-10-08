@@ -8,7 +8,7 @@ from .propagation import PropagationInfo, Trajectory
 from .time import J2000, Epoch
 from .tle import TLEOrbit
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 __all__ = [
     "Body", "Earth", "Mars", "Moon", "Sun",
