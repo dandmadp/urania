@@ -105,6 +105,23 @@ def kepler_propagate(r0, v0, dt: float, mu: float) -> tuple[np.ndarray, np.ndarr
     return r[0], v[0]
 
 
+def hermite(t: float, t0: float, t1: float, r0, v0, r1, v1) -> tuple[np.ndarray, np.ndarray]:
+    """Cubic Hermite interpolation of position and velocity between two samples.
+
+    Matches positions and velocities at both ends. For a low orbit sampled 100 times per revolution
+    the position error is well under a meter.
+    """
+    h = t1 - t0
+    s = (t - t0) / h
+    s2, s3 = s * s, s * s * s
+    h00, h10, h01, h11 = 2 * s3 - 3 * s2 + 1, s3 - 2 * s2 + s, -2 * s3 + 3 * s2, s3 - s2
+    d00, d10, d01, d11 = (6 * s2 - 6 * s) / h, 3 * s2 - 4 * s + 1, (-6 * s2 + 6 * s) / h, 3 * s2 - 2 * s
+    r0, v0, r1, v1 = (np.asarray(x, dtype=float) for x in (r0, v0, r1, v1))
+    r = h00 * r0 + h10 * h * v0 + h01 * r1 + h11 * h * v1
+    v = d00 * r0 + d10 * v0 + d01 * r1 + d11 * v1
+    return r, v
+
+
 class CowellResult(NamedTuple):
     t: np.ndarray          # output times [s], length N
     r: np.ndarray          # positions [m], N×3

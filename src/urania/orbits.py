@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass, field
 from functools import cached_property
 
+import astropy.units as u
 import numpy as np
 
 from . import units
@@ -16,6 +17,53 @@ from .core import j2 as _j2
 from .core import kepler as _kepler
 from .core import twobody as _tb
 from .time import J2000, Epoch
+
+
+# name → (display unit, SI unit) for Orbit.qty
+_QTY_UNITS = {
+    "r": (u.km, u.m), "v": (u.km / u.s, u.m / u.s),
+    "a": (u.km, u.m), "p": (u.km, u.m), "r_periapsis": (u.km, u.m), "r_apoapsis": (u.km, u.m),
+    "periapsis_altitude": (u.km, u.m), "apoapsis_altitude": (u.km, u.m),
+    "ecc": (u.dimensionless_unscaled, u.dimensionless_unscaled),
+    "inc": (u.deg, u.rad), "raan": (u.deg, u.rad), "argp": (u.deg, u.rad), "nu": (u.deg, u.rad),
+    "M": (u.deg, u.rad),
+    "period": (u.min, u.s), "mean_motion": (u.deg / u.s, u.rad / u.s),
+    "energy": (u.km**2 / u.s**2, u.J / u.kg), "h": (u.km**2 / u.s, u.m**2 / u.s),
+    "raan_rate": (u.deg / u.day, u.rad / u.s), "argp_rate": (u.deg / u.day, u.rad / u.s),
+}
+
+
+class OrbitQuantities:
+    """Orbit properties as astropy Quantities in convenient units (km, deg, min, ...).
+
+    ``orbit.qty.a`` → ``<Quantity 6798.137 km>``; ``print(orbit.qty)`` lists them all.
+    Values that are undefined for the orbit (e.g. the period of a hyperbola) are skipped in the list.
+    """
+
+    def __init__(self, orbit: Orbit):
+        self._orbit = orbit
+
+    def __getattr__(self, name: str):
+        if name.startswith("_") or name not in _QTY_UNITS:
+            raise AttributeError(f"No quantity {name!r}; available: {', '.join(_QTY_UNITS)}")
+        unit, si = _QTY_UNITS[name]
+        return (getattr(self._orbit, name) * si).to(unit)
+
+    def __dir__(self):
+        return list(_QTY_UNITS)
+
+    def __repr__(self) -> str:
+        lines = [repr(self._orbit)]
+        for name in _QTY_UNITS:
+            try:
+                q = getattr(self, name)
+            except (ValueError, ZeroDivisionError):
+                continue
+            if q.isscalar:
+                lines.append(f"  {name:<19} {q.value:,.6g} {q.unit}")
+            else:
+                lines.append(f"  {name:<19} [{', '.join(f'{x:,.6g}' for x in q.value)}] {q.unit}")
+        return "\n".join(lines)
 
 
 def _frozen_vector(x) -> np.ndarray:
@@ -109,6 +157,15 @@ class Orbit:
                                  epoch=epoch)
 
     # ---------------------------------------------------------- orbital elements
+
+    @property
+    def qty(self) -> OrbitQuantities:
+        """Properties as Quantities in km, deg, min, ...: ``orbit.qty.a``, ``print(orbit.qty)``."""
+        return OrbitQuantities(self)
+
+    def summary(self) -> str:
+        """All properties in convenient units, one per line."""
+        return repr(self.qty)
 
     @cached_property
     def elements(self) -> _el.Elements:
@@ -244,6 +301,21 @@ class Orbit:
             raise RuntimeError(f"Propagation stopped early ({tr.info.terminated}) after "
                                f"{tr.t[-1]:.1f} s of {duration:.1f} s")
         return tr.final
+
+    def lifetime(self, *, area, mass, cd: float = 2.2, density=None, method: str = "averaged",
+                 reentry_altitude=100e3, max_days=3650.0):
+        """Estimate how long the orbit survives atmospheric drag; returns a Lifetime.
+
+        method="averaged" (default) integrates the orbit-averaged decay of a near-circular orbit and
+        takes about a second for years; method="numerical" propagates the full j2+drag model.
+        max_days (days, or a time Quantity) limits the search.
+
+        Example: ``Orbit.circular(Earth, 400 * u.km, inc=51.6 * u.deg).lifetime(area=0.03, mass=4)``
+        """
+        from .lifetime import lifetime
+
+        return lifetime(self, cd=cd, area=area, mass=mass, density=density, method=method,
+                        reentry_altitude=reentry_altitude, max_days=max_days)
 
     # ---------------------------------------------------------- maneuvers
 

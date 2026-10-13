@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Ground tracks (`Trajectory.ground_track`), station passes (`Trajectory.passes` with `GroundStation`),
+  eclipses (`Trajectory.eclipses`) and lifetime estimates (`Orbit.lifetime`), each with `explain()` and `plot()`.
+- `Trajectory.state_at(t)`: position and velocity at any time between samples.
+- `orbit.qty` (Quantities in km, deg, min, ...) and `orbit.summary()`.
+- `core.frames` (GMST, Earth-fixed and geodetic coordinates, look angles), `core.sun` (Sun position, shadow),
+  `core.lifetime` (orbit-averaged decay).
+
+### Changed
+- The inertial frame is defined as the true equator of date (z = Earth's spin axis).
+- `Trajectory` and `Burn` print a one-line summary.
+
+### Fixed
+- `core.frames.look_angles` could return an azimuth of 360° instead of 0°.
+
 ## 0.0.2 (2026-10-08)
 
 ### Fixed

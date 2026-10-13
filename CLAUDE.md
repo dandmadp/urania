@@ -52,3 +52,10 @@ Windows. Call the virtual environment's Python directly.
 - [x] 6. `.plot()`, `.explain()` (`viz.py`, `explain.py`)
 - [x] 7. TLE wrapper (`TLEOrbit`, sgp4)
 - [x] 8. GMAT and TLE comparison, README, examples (GMAT R2026a at `D:\gmat-win-R2026a`; rerun with `bin/GmatConsole.exe --run <script>`)
+
+v0.1 (SPEC.md section 8):
+
+- [x] Usability: concise reprs, `orbit.qty`, `orbit.summary()`
+- [x] Frames: `core.frames` (GMST, ECEF, geodetic, look angles) — DECISIONS D31
+- [x] Ground track, passes (`ground.py`), eclipses (`eclipse.py`), lifetime (`lifetime.py`) — D32, D33
+- Validation references: Skyfield (dev dependency) for ground tracks and passes; full propagation for lifetime

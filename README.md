@@ -59,6 +59,8 @@ sv = ur.Orbit.from_vectors(ur.Earth, [6524.834, 6862.875, 6448.296] * u.km,
                            [4.901327, 5.533756, -1.976341] * u.km / u.s)
 
 print(sv.a, sv.ecc, sv.period)     # results are SI numbers: m, -, s
+print(sv.qty.a, sv.qty.inc)        # or Quantities in km, deg, min, ...
+print(sv.summary())                # every property in convenient units
 print(sv.explain())                # how the elements follow from the state vector
 
 # a 400 x 600 km orbit, at a UTC epoch
@@ -116,6 +118,32 @@ ur.ISS.transfer_to(ur.GEO, plane_split=0)                    # whole plane chang
 
 When the planes differ, burns happen at the line of nodes, and by default a Hohmann transfer splits the plane change optimally between its two burns.
 
+## CubeSat operations
+
+Ground tracks, station passes, eclipses and lifetime work on any trajectory around Earth (from `Orbit.propagate`
+or `TLEOrbit.propagate`).
+
+```python
+import astropy.units as u
+import urania as ur
+
+iss = ur.TLEOrbit.from_text("""ISS (ZARYA)
+1 25544U 98067A   19343.69339541  .00001764  00000-0  38792-4 0  9991
+2 25544  51.6439 211.2001 0007417  17.6667  85.6398 15.50103472202482""")
+day = iss.propagate(days=1)
+
+station = ur.GroundStation.create("Daejeon", 36.37 * u.deg, 127.36 * u.deg, 70 * u.m)
+passes = day.passes(station, min_elevation=10 * u.deg)   # rise, peak and set of every pass
+print(passes)
+eclipses = day.eclipses()                                 # penumbra and umbra intervals
+print(eclipses.shadow_fraction)
+track = day.ground_track()                                # geodetic latitude, longitude, height
+track.plot(stations=[station])
+
+life = iss.to_orbit().lifetime(area=0.03 * u.m**2, mass=4 * u.kg)   # about a second
+print(life, life.explain())
+```
+
 ## TLE
 
 ```python
@@ -145,6 +173,10 @@ TLE elements are SGP4-specific mean elements, so they are kept separate from `Or
 | NASA GMAT R2026a, two-body | 1 day, RK89 | at most 0.009 m |
 | NASA GMAT R2026a, J2 | 7 days, 420 km, 51.64° | at most 3.3 m (144 m without the true pole, see below) |
 | NASA GMAT R2026a, J2 + drag | 3 days, 400 km, exponential atmosphere | at most 3.3 m (73 m without the true pole) |
+| Sidereal time and Sun position | Vallado examples 3-5, 5-1 | GMST to 1e-8°, Sun direction within 2" |
+| Ground track | Skyfield, ISS TLE, 1 day | latitude and height identical, longitude within UT1 − UTC (0.0008°) |
+| Station passes | Skyfield `find_events`, 4 stations, 3 days, 39 passes | rise/peak/set within 0.23 s, peak elevation within 0.009° |
+| Lifetime (averaged method) | full j2+drag propagation, 250 to 350 km | within 2% |
 
 SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sanity check rather than precise validation. Precise validation comes from the GMAT comparison ([validation/gmat](https://github.com/dandmadp/urania/blob/main/validation/gmat), [tests/test_gmat.py](https://github.com/dandmadp/urania/blob/main/tests/test_gmat.py)).
 
@@ -156,7 +188,9 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
 - Atmosphere: Vallado's exponential model (mean solar activity), with height above the reference ellipsoid. Real density varies several-fold with solar activity.
 - Maneuvers: impulsive transfers between circular orbits. Rendezvous (phasing) and interplanetary transfers come later.
 - Time: TDB internally. UTC goes through astropy: `Epoch.from_utc()`, `epoch.utc`, `Epoch.now()`.
-- Frames: fixed inertial axes (precession and nutation ignored). TLEs use TEME as is.
+- Frames: the inertial frame's z axis is Earth's spin axis (true equator of date, like TEME); precession and nutation
+  are not modeled, so give state vectors in that frame. Earth-fixed coordinates use GMST with UT1 ≈ UTC and no polar
+  motion (longitudes within about 0.4 km). TLEs use TEME as is.
 - Plots: 2D only.
 
 ## Examples

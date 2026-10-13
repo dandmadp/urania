@@ -310,3 +310,76 @@ def explain_tle(tle: TLEOrbit) -> Explanation:
                            "elements; extract a state vector with to_orbit().",
                            "a is approximated from the Kozai mean motion and the WGS72 μ"))
     return ex
+
+
+# ---------------------------------------------------------------- passes, eclipses, lifetime
+
+def explain_passes(report) -> Explanation:
+    """How pass predictions are computed and what they found."""
+    st = report.station
+    ex = Explanation(f"Passes over {st.name}: {len(report)} above {math.degrees(report.min_elevation):.1f}°")
+    ex.step("Station",
+            f"geodetic latitude {_deg(st.lat)}, longitude {_deg(st.lon)}, height {st.alt:,.0f} m",
+            f"Earth-fixed position r_site = {_vec(st.r_ecef, 1e3, 'km')}")
+    ex.step("Earth rotation",
+            "θ = GMST(UT1), IAU 1982: 67310.54841 s + (876600 h + 8640184.812866 s) T + 0.093104 s T² − 6.2e-6 s T³",
+            "r_ECEF = R3(θ) r_inertial")
+    ex.step("Look angles (east-north-up at the station)",
+            "ρ = r_ECEF − r_site,  elevation = asin(ρ_up / |ρ|),  azimuth = atan2(ρ_east, ρ_north)",
+            "rise and set: roots of elevation − minimum; peak: bounded maximization between them")
+    lines = [repr(p) for p in report.passes] or ["no pass in this interval"]
+    lines.append(f"total contact {report.total_contact / 60:.1f} min from {report.start.utc[:19]} to "
+                 f"{report.end.utc[:19]} UTC")
+    ex.step("Passes", *lines)
+    ex.assumptions.extend(report.assumptions)
+    if any(p.truncated for p in report.passes):
+        ex.warnings.append("A pass is cut by the start or end of the trajectory; its duration is incomplete.")
+    return ex
+
+
+def explain_eclipses(report) -> Explanation:
+    """Shadow geometry and eclipse statistics."""
+    ex = Explanation(f"Eclipses: {len(report)} over {report.span / DAY:.3f} days")
+    ex.step("Shadow geometry (conical, Montenbruck & Gill 3.4.2)",
+            "a = asin(R_sun / |r_sun − r|) (apparent Sun radius), b = asin(R_earth / |r|) (apparent Earth radius)",
+            "c = angle between the Earth and Sun centers seen from the satellite",
+            "penumbra: c < a + b,  umbra: c < b − a",
+            "sunlit fraction = 1 − (overlap area of the two disks) / (π a²)")
+    if report.eclipses:
+        dur = [e.duration for e in report.eclipses if not e.truncated] or [e.duration for e in report.eclipses]
+        umb = [e.umbra_duration for e in report.eclipses if not e.truncated] or [0.0]
+        ex.step("Statistics",
+                f"shadow per pass: {min(dur) / 60:.2f} to {max(dur) / 60:.2f} min "
+                f"(umbra up to {max(umb) / 60:.2f} min)",
+                f"fraction of time in shadow: {100 * report.shadow_fraction:.2f}%",
+                *[repr(e) for e in report.eclipses[:5]],
+                *(["..."] if len(report) > 5 else []))
+    else:
+        ex.step("Statistics", "no eclipse in this interval (full sunlight)")
+    ex.assumptions.extend(report.assumptions)
+    return ex
+
+
+def explain_lifetime(life) -> Explanation:
+    """Decay model, formulas and result."""
+    o = life.initial
+    ex = Explanation(f"Lifetime ({life.method}): "
+                     + (f"{life.days:.1f} days" if life.reentered else f"more than {life.days:.1f} days"))
+    ex.step("Initial orbit",
+            f"periapsis altitude {_km(o.periapsis_altitude)}, apoapsis altitude {_km(o.apoapsis_altitude)}, "
+            f"i = {_deg(o.inc)}")
+    if life.method == "averaged":
+        ex.step("Orbit-averaged decay",
+                "a_T = −½ ρ (C_D A/m) |v_rel| (v_rel · t̂),  v_rel = v − ω × r",
+                "da/dt = ⟨2 a_T / n⟩ over the argument of latitude (reduces to −ρ B √(μa) without rotation)",
+                f"mean altitude at the start {_km(life.altitude[0])} (osculating {_km(o.a - o.body.radius)})")
+    else:
+        ex.step("Numerical propagation", "full j2+drag equations of motion; see Trajectory.explain()")
+    if life.reentered:
+        ex.step("Result", f"altitude falls below {_km(life.reentry_altitude)} after {life.days:.2f} days",
+                f"reentry {life.reentry.utc[:19]} UTC")
+    else:
+        ex.step("Result", f"still above {_km(life.reentry_altitude)} after {life.days:.1f} days "
+                          f"(increase max_days to search further)")
+    ex.assumptions.extend(life.assumptions)
+    return ex

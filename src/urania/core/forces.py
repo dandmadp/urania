@@ -5,6 +5,8 @@ import math
 
 import numpy as np
 
+from .frames import geodetic_scalar
+
 
 def accel_twobody(r: np.ndarray, mu: float) -> np.ndarray:
     """Point-mass gravity of the central body: a = -μ r / |r|³."""
@@ -79,21 +81,9 @@ def geodetic_altitude(r: np.ndarray, R: float, f: float) -> float:
     """Height [m] above a reference ellipsoid (equatorial radius R, flattening f).
 
     The ellipsoid is symmetric about the spin axis (inertial z), so no Earth rotation is needed.
-    Iterates the geodetic latitude (Vallado algorithm 12); the height formula stays well
-    conditioned at the poles. With f = 0 this is the spherical height |r| - R.
+    With f = 0 this is the spherical height |r| - R. See `core.frames.geodetic`.
     """
-    x, y, z = r
-    p = math.hypot(x, y)
-    if f == 0.0:
-        return math.hypot(p, z) - R
-    e2 = f * (2.0 - f)
-    lat = math.atan2(z, p * (1.0 - e2))
-    for _ in range(6):
-        sin_lat = math.sin(lat)
-        N = R / math.sqrt(1.0 - e2 * sin_lat * sin_lat)
-        lat = math.atan2(z + N * e2 * sin_lat, p)
-    sin_lat, cos_lat = math.sin(lat), math.cos(lat)
-    return p * cos_lat + z * sin_lat - R * math.sqrt(1.0 - e2 * sin_lat * sin_lat)
+    return geodetic_scalar(float(r[0]), float(r[1]), float(r[2]), R, f)[2]
 
 
 def exponential_density(altitude: float) -> float:

@@ -131,6 +131,57 @@ class Trajectory:
             arr.flags.writeable = False
         return out
 
+    def state_at(self, t) -> tuple[np.ndarray, np.ndarray]:
+        """Position [m] and velocity [m/s] at any time within the trajectory.
+
+        t is seconds since the start (number or time Quantity) or an Epoch. Between samples the state is
+        cubic-Hermite interpolated, which keeps positions to well under a meter at the default sampling.
+        """
+        from .time import Epoch
+
+        if isinstance(t, Epoch):
+            t = t - self.epoch
+        t = units.to_si(t, units.TIME)
+        if not isinstance(t, float):
+            raise TypeError("state_at takes a single time; loop or use the sampled arrays for many")
+        ts = self.t
+        if len(ts) == 1:
+            if t != ts[0]:
+                raise ValueError("The trajectory has a single sample")
+            return self.r[0].copy(), self.v[0].copy()
+        forward = ts[-1] > ts[0]
+        lo, hi = (ts[0], ts[-1]) if forward else (ts[-1], ts[0])
+        tol = 1e-9 * max(1.0, abs(hi - lo))
+        if not lo - tol <= t <= hi + tol:
+            raise ValueError(f"t = {t} s is outside the trajectory ({lo} s to {hi} s)")
+        order = slice(None) if forward else slice(None, None, -1)
+        tt, rr, vv = ts[order], self.r[order], self.v[order]
+        i = int(np.clip(np.searchsorted(tt, t), 1, len(tt) - 1))
+        return _prop.hermite(t, tt[i - 1], tt[i], rr[i - 1], vv[i - 1], rr[i], vv[i])
+
+    def ground_track(self):
+        """Geodetic latitude, longitude and height under the satellite at every sample (Earth only)."""
+        from .ground import ground_track
+
+        return ground_track(self)
+
+    def passes(self, station, min_elevation=math.radians(10.0)):
+        """Passes over a GroundStation above min_elevation (default 10°), with rise, peak and set."""
+        from .ground import passes
+
+        return passes(self, station, min_elevation)
+
+    def eclipses(self):
+        """Times in Earth's penumbra and umbra, and the sunlit fraction at every sample (Earth only)."""
+        from .eclipse import eclipses
+
+        return eclipses(self)
+
+    def __repr__(self) -> str:
+        cut = f", stopped: {self.info.terminated}" if self.info.terminated else ""
+        return (f"Trajectory({self.body.name}, {self.info.model}, {len(self)} points, "
+                f"{self.t[-1] / SECONDS_PER_DAY:+.3f} days from {self.epoch.iso[:19]} TDB{cut})")
+
     def explain(self):
         """Show the equations of motion, integrator, changes in the result and interpretation caveats."""
         from .explain import explain_trajectory

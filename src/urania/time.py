@@ -14,6 +14,8 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+import numpy as np
+
 from . import units
 
 SECONDS_PER_DAY = 86400.0
@@ -139,3 +141,15 @@ class Epoch:
 
 
 J2000 = Epoch(0.0)
+
+
+def utc_jd(tdb_seconds) -> np.ndarray:
+    """TDB seconds since J2000 (scalar or array) → UTC Julian dates, converted by astropy.
+
+    Used as an approximation of UT1 for Earth rotation (|UT1 - UTC| < 0.9 s).
+    """
+    from astropy.time import Time
+
+    s = np.atleast_1d(np.asarray(tdb_seconds, dtype=float))
+    utc = Time(np.full(s.shape, JD_J2000), s / SECONDS_PER_DAY, format="jd", scale="tdb").utc
+    return utc.jd1 + utc.jd2

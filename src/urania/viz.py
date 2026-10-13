@@ -174,3 +174,73 @@ def plot_transfer(t: Transfer, ax=None):
         title += f", plane change {math.degrees(t.plane_change):.2f}°"
     _finish(ax, title)
     return ax
+
+
+def _break_wraps(lon_deg: np.ndarray, lat_deg: np.ndarray):
+    """Insert NaNs where the longitude wraps around ±180° so lines do not cross the map."""
+    jumps = np.nonzero(np.abs(np.diff(lon_deg)) > 180.0)[0] + 1
+    return np.insert(lon_deg, jumps, np.nan), np.insert(lat_deg, jumps, np.nan)
+
+
+def plot_ground_track(gt, ax=None, stations=()):
+    """Ground track in degrees (equirectangular), with optional ground stations."""
+    import matplotlib.pyplot as plt
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(10, 5))
+    lon, lat = _break_wraps(np.degrees(gt.lon), np.degrees(gt.lat))
+    ax.plot(lon, lat, color="C0", lw=0.8, label="ground track")
+    ax.plot(math.degrees(gt.lon[0]), math.degrees(gt.lat[0]), "o", color="C2", label="start")
+    ax.plot(math.degrees(gt.lon[-1]), math.degrees(gt.lat[-1]), "s", color="C3", label="end")
+    for k, st in enumerate(stations):
+        ax.plot(math.degrees(st.lon), math.degrees(st.lat), "^", color="C1", ms=9,
+                label="station" if k == 0 else None)
+        ax.annotate(st.name, (math.degrees(st.lon), math.degrees(st.lat)), textcoords="offset points",
+                    xytext=(6, 6), fontsize="small")
+    ax.set_xlim(-180, 180)
+    ax.set_ylim(-90, 90)
+    ax.set_xticks(range(-180, 181, 60))
+    ax.set_yticks(range(-90, 91, 30))
+    ax.set_aspect("equal")
+    ax.set_xlabel("longitude [deg]")
+    ax.set_ylabel("latitude [deg]")
+    ax.set_title(f"Ground track ({gt.t[-1] / 86400:.2f} days from {gt.epoch.utc[:16]} UTC)")
+    ax.grid(alpha=0.3)
+    ax.legend(loc="lower left", fontsize="small")
+    return ax
+
+
+def plot_illumination(report, ax=None):
+    """Visible fraction of the Sun against time."""
+    import matplotlib.pyplot as plt
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(9, 3))
+    hours = report.t / 3600.0
+    ax.fill_between(hours, report.illumination, step=None, color="#f2c14e", alpha=0.6, lw=0)
+    ax.plot(hours, report.illumination, color="#b07d00", lw=0.8)
+    ax.set_ylim(-0.05, 1.05)
+    ax.set_xlabel("time [h]")
+    ax.set_ylabel("sunlit fraction")
+    ax.set_title(f"Eclipses: {len(report)} passages, {100 * report.shadow_fraction:.1f}% of the time in shadow")
+    ax.grid(alpha=0.3)
+    return ax
+
+
+def plot_lifetime(life, ax=None):
+    """Altitude against time until reentry."""
+    import matplotlib.pyplot as plt
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(8, 4))
+    days = life.t / 86400.0
+    label = "mean altitude" if life.method == "averaged" else "altitude"
+    ax.plot(days, life.altitude / KM, color="C0", lw=0.8 if life.method == "numerical" else 1.5, label=label)
+    ax.axhline(life.reentry_altitude / KM, color="C3", ls="--", lw=1, label="reentry altitude")
+    ax.set_xlabel("time [day]")
+    ax.set_ylabel("altitude [km]")
+    status = f"{life.days:.1f} days" if life.reentered else f"> {life.days:.1f} days"
+    ax.set_title(f"Lifetime ({life.method}): {status}")
+    ax.grid(alpha=0.3)
+    ax.legend(loc="upper right", fontsize="small")
+    return ax

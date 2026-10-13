@@ -49,6 +49,9 @@ class Burn:
         """Δv magnitude [m/s]."""
         return float(np.linalg.norm(self.dv))
 
+    def __repr__(self) -> str:
+        return f"Burn({self.description}, Δv={self.magnitude / 1e3:.4f} km/s, {self.epoch.iso[:19]} TDB)"
+
 
 @dataclass(frozen=True, eq=False)
 class Transfer:

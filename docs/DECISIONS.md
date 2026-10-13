@@ -185,3 +185,36 @@
   Fixed with `numpy.cbrt` and a small ISO normalizer.
 - GitHub Actions runs the tests on Python 3.10 to 3.13 (Linux), 3.11 on Windows, and 3.10 with the oldest
   dependency versions allowed by pyproject.toml (`uv --resolution lowest-direct`).
+
+## D31. Inertial frame = true equator of date; Earth-fixed via GMST (v0.1)
+- urania's inertial frame is now defined explicitly: z along Earth's spin axis (true equator of date, like TEME), which is
+  what J2, the co-rotating atmosphere and the ellipsoid already assumed. Precession and nutation are not modeled.
+- Earth-fixed coordinates rotate by GMST (IAU 1982, Vallado eq. 3-47) with UT1 ≈ UTC and no polar motion. Against Skyfield
+  (full Earth orientation) latitude and height are identical and longitude differs by UT1 − UTC (0.0008° in Dec 2019).
+  This avoids IERS downloads and is ample for ground tracks and contact planning.
+- `core.frames` holds the pure functions (gmst82, rotate_z, geodetic, geodetic_to_ecef, look_angles). The atmosphere's
+  height now uses the same geodetic code (a scalar math path for speed inside the integrator).
+
+## D32. Passes and eclipses: sampled search refined between samples (v0.1)
+- Elevation and shadow functions are evaluated at the trajectory samples, sign changes are refined by root finding, and
+  pass peaks by bounded minimization. States between samples come from `Trajectory.state_at` (cubic Hermite, well under
+  a meter at 100 samples per orbit). Sampled local maxima just below the threshold are refined so short, low passes
+  between samples are not missed.
+- Eclipses use the conical shadow with partial disk overlap (Montenbruck & Gill 3.4.2) and the low-precision Almanac
+  Sun position (Vallado algorithm 29), spherical Earth. Randomized tests compare against 1 s brute-force sampling.
+- Skyfield is a dev dependency used only as a validation reference. Its 1.45 release locates events less precisely (one
+  set time 1.65 s off), so the test checks Skyfield's own elevation at urania's event times (within 0.005°).
+
+## D33. Lifetime: orbit-averaged decay with a J2 correction (v0.1)
+- The averaged method integrates da/dt = ⟨2 a_T / n⟩ over a circular orbit, starting from the semi-major axis averaged
+  over one J2 orbit (the osculating value at the node is about 6 km higher at 350 km, 51.6°).
+- A circular orbit of constant radius was 12 to 17% off the full propagation at 280 km: the J2 orbit's radius varies
+  with latitude, which changes the mean density (scale height ~40 km). The rate is therefore multiplied by K(a), the
+  ratio of the rate averaged along one-orbit J2 propagations to the circular rate, evaluated at six altitudes and
+  interpolated. Agreement with full j2+drag propagation is now within 2% from 250 to 350 km at all inclinations,
+  at about 0.2 s per estimate. Eccentric orbits (e > 0.02) need method="numerical".
+- Reentry is when the mean altitude falls below 100 km (the remaining descent takes minutes).
+
+## D34. Usability: concise reprs and Quantities (v0.1)
+- `Trajectory` and `Burn` print one line instead of arrays. `orbit.qty.<name>` returns astropy Quantities in km, deg,
+  min, deg/day; `orbit.summary()` lists them. Internal values stay SI (D6); this is an output convenience only.

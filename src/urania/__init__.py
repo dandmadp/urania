@@ -1,7 +1,10 @@
 """urania — an astrodynamics library that computes, shows and explains."""
 
 from .bodies import Body, Earth, Mars, Moon, Sun
+from .eclipse import Eclipse, EclipseReport
 from .environment import Environment
+from .ground import GroundStation, GroundTrack, Pass, PassReport
+from .lifetime import Lifetime
 from .maneuvers import Burn, Transfer
 from .orbits import GEO, ISS, LEO, SSO, Orbit, sun_synchronous
 from .propagation import PropagationInfo, Trajectory
@@ -16,4 +19,5 @@ __all__ = [
     "Epoch", "J2000",
     "Environment", "Trajectory", "PropagationInfo", "Transfer", "Burn",
     "TLEOrbit",
+    "GroundStation", "GroundTrack", "Pass", "PassReport", "Eclipse", "EclipseReport", "Lifetime",
 ]

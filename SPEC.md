@@ -117,3 +117,17 @@ The structure is a proposal; adjust it with a reason if a better layout exists.
 - Make the tests pass at the end of each step before moving on
 - Record design decisions (such as the unit library choice) with a short rationale
 - Show code changes as code blocks containing only the changed parts
+
+## 8. Version 0.1 scope (added after the MVP)
+
+Motivated by a review of what CubeSat teams need first. Each feature gets `explain()` and, where useful, `plot()`.
+
+- Usability: concise reprs for result objects; properties as Quantities in convenient units (`orbit.qty`,
+  `orbit.summary()`).
+- Frames: define the inertial frame (z axis = Earth's spin axis, true equator of date); Earth-fixed coordinates via
+  Greenwich mean sidereal time; geodetic latitude/longitude/height; topocentric azimuth/elevation.
+- Ground track of a trajectory.
+- Ground station pass prediction (rise, peak, set).
+- Eclipses (penumbra and umbra) with an analytic Sun position.
+- Lifetime estimate under drag (fast orbit-averaged method plus full propagation).
+- Validation: Vallado examples, Skyfield for ground tracks and passes, full propagation for lifetime.
