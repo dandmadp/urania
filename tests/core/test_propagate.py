@@ -130,3 +130,22 @@ def test_many_revolutions_match_integration():
     r, v = kepler_propagate(r0, v0, 200 * T + 1234.5, MU)
     r_ref, v_ref = kepler_propagate(r0, v0, 1234.5, MU)
     assert np.linalg.norm(r - r_ref) < 1e-3
+
+
+def test_strongly_hyperbolic_long_propagation():
+    """Strongly hyperbolic arcs over long times (fast Lambert legs between planets) used to stall the
+    iteration on rounding noise or overflow sinh; energy and angular momentum must be conserved."""
+    rng = np.random.default_rng(3)
+    mu = 1.32712440041e20
+    for _ in range(300):
+        r0 = rng.normal(size=3) * 1.5e11
+        speed = math.sqrt(2 * mu / np.linalg.norm(r0)) * rng.uniform(1.01, 60.0)
+        v0 = rng.normal(size=3)
+        v0 *= speed / np.linalg.norm(v0)
+        dts = np.linspace(-3e8, 3e8, 13)
+        rs, vs = kepler_states(r0, v0, dts, mu)
+        e0 = v0 @ v0 / 2 - mu / np.linalg.norm(r0)
+        h0 = np.linalg.norm(np.cross(r0, v0))
+        for r, v in zip(rs, vs):
+            assert v @ v / 2 - mu / np.linalg.norm(r) == pytest.approx(e0, rel=1e-8)
+            assert np.linalg.norm(np.cross(r, v)) == pytest.approx(h0, rel=1e-7)

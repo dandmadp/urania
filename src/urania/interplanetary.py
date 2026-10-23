@@ -184,8 +184,14 @@ def hohmann_between(origin: Body, target: Body, parking_altitude, capture_altitu
         "impulsive burns; hyperbolic departures and arrivals burn at periapsis",
         "circular parking orbit at the origin",
     ]
+    if kind == "siblings" and origin.retrograde != target.retrograde:
+        raise ValueError(f"{origin.name} and {target.name} orbit {central.name} in opposite directions; "
+                         f"a Hohmann transfer needs both orbits in the same direction")
     if kind != "siblings":
         moon = target if kind == "to_moon" else origin
+        if moon.retrograde:
+            assumptions.append(f"{moon.name} orbits retrograde; the spacecraft's orbit around {central.name} "
+                               f"is taken in the same (retrograde) direction")
         assumptions.append(f"the sphere of influence of {moon.name} is {moon.soi / moon.semi_major_axis:.0%} of "
                            f"its orbit radius, so the patched-conic split is a rough approximation")
 

@@ -4,7 +4,7 @@
 
 urania is a Python library for people who are not professionals but want to compute orbits seriously: CubeSat teams, students, space simulation game players. Every result records the model and assumptions it was computed with, and `.explain()` walks through the formulas and intermediate values step by step.
 
-> Status: MVP in development (v0.0.2, [changelog](https://github.com/dandmadp/urania/blob/main/CHANGELOG.md)). Design: [SPEC.md](https://github.com/dandmadp/urania/blob/main/SPEC.md). Design decisions: [docs/DECISIONS.md](https://github.com/dandmadp/urania/blob/main/docs/DECISIONS.md).
+> Status: in development (v0.0.3, [changelog](https://github.com/dandmadp/urania/blob/main/CHANGELOG.md)). Design: [SPEC.md](https://github.com/dandmadp/urania/blob/main/SPEC.md). Design decisions: [docs/DECISIONS.md](https://github.com/dandmadp/urania/blob/main/docs/DECISIONS.md).
 
 ## Installation
 
@@ -301,11 +301,12 @@ SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sa
 
 GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the J2000 epoch is 7.69" away from the J2000 z axis. urania uses the frame's z axis as the spin axis. The small figures above compare both in a frame whose z axis is the true pole; the larger figures in parentheses are the direct comparison in the J2000 frame.
 
-## Limitations (MVP)
+## Limitations
 
 - Perturbations: J2 and atmospheric drag. Lunar/solar perturbations, solar radiation pressure and higher-order gravity come later.
 - Atmosphere: Vallado's exponential model (mean solar activity), with height above the reference ellipsoid. Real density varies several-fold with solar activity.
-- Maneuvers: impulsive transfers between circular orbits. Rendezvous (phasing) comes later. Body-to-body transfers
+- Maneuvers: impulsive burns. Hohmann, bi-elliptic and phasing maneuvers need circular orbits; Lambert rendezvous
+  and deorbit work with any elliptic orbit. Body-to-body transfers
   use patched conics (Hohmann estimates, or Lambert arcs between Standish planet positions with powered or
   unpowered flybys); deep-space maneuvers and trajectory optimization are not included. Moon positions are not
   modeled, so dated transfers exist only between planets.

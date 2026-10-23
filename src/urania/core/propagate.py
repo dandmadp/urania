@@ -1,5 +1,6 @@
 """Orbit propagation: analytic two-body propagation (universal variables) and Cowell numerical integration."""
 
+import math
 from typing import Callable, NamedTuple, Sequence
 
 import numpy as np
@@ -38,6 +39,86 @@ def _universal_guess(r0n: float, sigma0: float, alpha: float, h: float, dt: floa
     return np.sqrt(p) * 2.0 / np.tan(2.0 * w)
 
 
+
+def _kepler_residual(chi: float, r0n: float, sigma0: float, alpha: float, dt: float, sqrt_mu: float):
+    """Universal Kepler equation F(χ), its derivatives, and the size of its terms (for the rounding noise)."""
+    psi = chi * chi * alpha
+    c2, c3 = stumpff(psi)
+    terms = (chi**3 * c3, sigma0 * chi**2 * c2, r0n * chi * (1.0 - psi * c3))
+    F = terms[0] + terms[1] + terms[2] - sqrt_mu * dt
+    dF = chi**2 * c2 + sigma0 * chi * (1.0 - psi * c3) + r0n * (1.0 - psi * c2)   # = r > 0
+    ddF = sigma0 * (1.0 - psi * c2) + (1.0 - alpha * r0n) * chi * (1.0 - psi * c3)
+    scale = abs(terms[0]) + abs(terms[1]) + abs(terms[2]) + sqrt_mu * abs(dt)
+    return F, dF, ddF, scale
+
+
+def _solve_chi(r0n: float, sigma0: float, alpha: float, dt: float, sqrt_mu: float, chi: float) -> float:
+    """Root of the universal Kepler equation: Laguerre-Conway iteration, with a bracketing fallback.
+
+    F(χ) increases monotonically (dF/dχ = r > 0), so when the iteration fails (a poor start on a strongly
+    hyperbolic orbit can overflow sinh) the root is bracketed from χ = 0 and found by bisection.
+    """
+    try:
+        with np.errstate(over="raise", invalid="raise"):
+            chi = _laguerre(chi, r0n, sigma0, alpha, dt, sqrt_mu)
+        if chi is not None:
+            return chi
+    except (OverflowError, FloatingPointError):
+        pass
+    return _bisect_chi(r0n, sigma0, alpha, dt, sqrt_mu)
+
+
+def _laguerre(chi: float, r0n: float, sigma0: float, alpha: float, dt: float, sqrt_mu: float) -> float | None:
+    """Laguerre-Conway iteration (n = 5); None when it does not converge."""
+    eps = np.finfo(float).eps
+    for _ in range(60):
+        F, dF, ddF, scale = _kepler_residual(chi, r0n, sigma0, alpha, dt, sqrt_mu)
+        # Laguerre-Conway step with n = 5
+        disc = abs(16.0 * dF * dF - 20.0 * F * ddF)
+        step = 5.0 * F / (dF + np.copysign(np.sqrt(disc), dF))
+        chi -= step
+        if not np.isfinite(chi):
+            break
+        # The step cannot shrink below the rounding noise of F divided by dF: for strongly hyperbolic
+        # orbits over long times the terms of F are far larger than F itself
+        if abs(step) <= max(1e-14 * max(1.0, abs(chi)), 8.0 * eps * scale / abs(dF)):
+            return float(chi)
+    return None
+
+
+def _bisect_chi(r0n: float, sigma0: float, alpha: float, dt: float, sqrt_mu: float) -> float:
+    """Bisection on the monotonic F(χ), bracketed from χ = 0 (the robust fallback)."""
+    eps = np.finfo(float).eps
+
+    def sign(x: float) -> float:
+        """Sign of F(x); an overflow means |χ| is far beyond the root, where F has the sign of χ."""
+        try:
+            with np.errstate(over="raise", invalid="raise"):
+                value = _kepler_residual(x, r0n, sigma0, alpha, dt, sqrt_mu)[0]
+        except (OverflowError, FloatingPointError):
+            return math.copysign(1.0, x)
+        return math.copysign(1.0, value)
+
+    direction = 1.0 if dt > 0 else -1.0
+    far = direction * max(abs(sqrt_mu * dt) / r0n, 1.0)    # χ ≈ √μ·dt/r for short times
+    for _ in range(200):
+        if sign(far) == direction:
+            break
+        far *= 2.0
+    else:
+        raise RuntimeError(f"Universal Kepler equation could not be bracketed: dt={dt}")
+    near = 0.0                                             # F(0) = -√μ·dt has the opposite sign
+    for _ in range(200):                                   # bisection: F is monotonic
+        mid = 0.5 * (near + far)
+        if abs(far - near) <= 2.0 * eps * max(1.0, abs(mid)):
+            break
+        if sign(mid) == direction:
+            far = mid
+        else:
+            near = mid
+    return float(0.5 * (near + far))
+
+
 def kepler_states(r0, v0, dts: Sequence[float], mu: float) -> tuple[np.ndarray, np.ndarray]:
     """Two-body analytic states at several times dts [s], by universal variables.
 
@@ -71,22 +152,7 @@ def kepler_states(r0, v0, dts: Sequence[float], mu: float) -> tuple[np.ndarray, 
         if dt == 0.0:
             r_out[i], v_out[i] = r0, v0
             continue
-        chi = _universal_guess(r0n, sigma0, alpha, h, dt, mu)
-        for _ in range(100):
-            psi = chi * chi * alpha
-            c2, c3 = stumpff(psi)
-            F = chi**3 * c3 + sigma0 * chi**2 * c2 + r0n * chi * (1.0 - psi * c3) - sqrt_mu * dt
-            dF = chi**2 * c2 + sigma0 * chi * (1.0 - psi * c3) + r0n * (1.0 - psi * c2)   # = r
-            ddF = sigma0 * (1.0 - psi * c2) + (1.0 - alpha * r0n) * chi * (1.0 - psi * c3)
-            # Laguerre-Conway step with n = 5
-            disc = abs(16.0 * dF * dF - 20.0 * F * ddF)
-            denom = dF + np.copysign(np.sqrt(disc), dF)
-            step = 5.0 * F / denom
-            chi -= step
-            if abs(step) <= 1e-14 * max(1.0, abs(chi)):
-                break
-        else:
-            raise RuntimeError(f"Universal Kepler equation did not converge: dt={dt}")
+        chi = _solve_chi(r0n, sigma0, alpha, dt, sqrt_mu, _universal_guess(r0n, sigma0, alpha, h, dt, mu))
         psi = chi * chi * alpha
         c2, c3 = stumpff(psi)
         r_norm = chi**2 * c2 + sigma0 * chi * (1.0 - psi * c3) + r0n * (1.0 - psi * c2)

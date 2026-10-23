@@ -51,7 +51,8 @@ def _is_duration(x) -> bool:
 
 def _require_planet(body: Body) -> None:
     if body.ephemeris is None:
-        raise ValueError(f"{body.name} has no ephemeris; Lambert trajectories need planets (Mercury to Neptune)")
+        raise ValueError(f"{body.name} has no ephemeris: positions are modeled only for the planets "
+                         f"(Mercury to Neptune)")
 
 
 def planet_state(body: Body, epoch: Epoch) -> tuple[np.ndarray, np.ndarray]:
@@ -285,7 +286,7 @@ def flyby_mission(sequence, dates, parking_altitude, capture_altitude=None, *, c
         _require_planet(b)
     if any(b - a <= 0 for a, b in zip(dates, dates[1:])):
         raise ValueError("dates must increase")
-    revs = [revolutions] * (len(seq) - 1) if isinstance(revolutions, int) else list(revolutions)
+    revs = [int(revolutions)] * (len(seq) - 1) if np.ndim(revolutions) == 0 else [int(n) for n in revolutions]
     if len(revs) != len(seq) - 1:
         raise ValueError(f"revolutions needs one value per leg ({len(seq) - 1})")
     h_park = _altitude(parking_altitude, "parking_altitude", seq[0])

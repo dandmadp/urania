@@ -24,9 +24,14 @@ def footprint(altitude: float, radius: float, min_elevation: float = 0.0) -> tup
     if not 0.0 <= min_elevation <= math.pi / 2:
         raise ValueError(f"Minimum elevation must be within 0 to 90°: {min_elevation}")
     eta = math.asin(math.cos(min_elevation) * radius / (radius + altitude))
-    lam = math.pi / 2 - min_elevation - eta
-    D = radius * math.sin(lam) / math.sin(eta) if eta > 0.0 else altitude
-    return lam, eta, D
+    lam = max(math.pi / 2 - min_elevation - eta, 0.0)
+    return lam, eta, _slant_range(altitude, radius, min_elevation)
+
+
+def _slant_range(altitude: float, radius: float, elevation: float) -> float:
+    """Distance from a ground point to a satellite seen at the given elevation (law of cosines)."""
+    s = radius * math.sin(elevation)
+    return math.sqrt(s * s + altitude * (2.0 * radius + altitude)) - s
 
 
 def sensor_footprint(altitude: float, radius: float, half_angle: float) -> tuple[float, float, float]:
@@ -41,6 +46,5 @@ def sensor_footprint(altitude: float, radius: float, half_angle: float) -> tuple
     eta = min(half_angle, rho)
     cos_eps = math.sin(eta) / math.sin(rho)
     eps = math.acos(min(cos_eps, 1.0))
-    lam = math.pi / 2 - eta - eps
-    D = radius * math.sin(lam) / math.sin(eta) if eta > 0.0 else altitude
-    return lam, eps, D
+    lam = max(math.pi / 2 - eta - eps, 0.0)
+    return lam, eps, _slant_range(altitude, radius, eps)

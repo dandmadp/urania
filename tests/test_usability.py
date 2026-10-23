@@ -152,12 +152,19 @@ def test_cheatsheet_lines_run():
     """Every self-contained line of the cheat sheet runs."""
     text = str(ur.cheatsheet())
     assert "ur.Orbit.circular" in text and repr(ur.cheatsheet()) == text
-    calls = [line.strip().split("   ")[0].strip() for line in text.splitlines() if line.startswith("  ur.")]
-    assert len(calls) >= 10
+    calls = [line.strip().split("   ")[0].strip() for line in text.splitlines()
+             if line.startswith(("  ur.", "  orbit.", "  tr", "  station", "  chaser."))]
+    assert len(calls) >= 18
     import matplotlib.pyplot as plt
 
-    for code in calls:
-        if "tle_text" in code:
-            continue
-        exec(code, {"ur": ur, "u": u})
+    tle_text = """ISS (ZARYA)
+1 25544U 98067A   19343.69339541  .00001764  00000-0  38792-4 0  9991
+2 25544  51.6439 211.2001 0007417  17.6667  85.6398 15.50103472202482"""
+    names = {"ur": ur, "u": u, "orbit": ur.Orbit.circular("Earth", "500 km", inc="51.6 deg"), "tle_text": tle_text,
+             "chaser": ur.Orbit.circular("Earth", "400 km", inc="51.64 deg"),
+             "target": ur.Orbit.circular("Earth", "420 km", inc="51.64 deg", arglat="5 deg")}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        for code in calls:
+            exec(code, names)
     plt.close("all")

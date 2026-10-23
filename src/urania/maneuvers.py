@@ -364,6 +364,10 @@ def deorbit(initial: Orbit, perigee_altitude) -> Transfer:
     body = initial.body
     mu = body.mu
     h_p = units.altitude(perigee_altitude, "perigee_altitude")
+    if initial.ecc >= 1.0:
+        raise ValueError(f"Deorbit needs an elliptic orbit (e={initial.ecc:.4g}); the burn is made at apoapsis")
+    if not body.radius + h_p > 0.0:
+        raise ValueError(f"perigee_altitude {h_p / 1e3:.0f} km puts periapsis below the center of {body.name}")
     if initial.ecc > CIRCULAR_ECC_TOL:
         coast = ((math.pi - initial.M) % (2.0 * math.pi)) / initial.mean_motion
     else:

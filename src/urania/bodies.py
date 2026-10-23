@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any
 
 from . import units
@@ -35,6 +36,7 @@ class Body:
     parent: Body | None = field(default=None, compare=False)    # body it orbits
     semi_major_axis: float = field(default=0.0, compare=False)  # mean semi-major axis around parent [m]
     ephemeris: str | None = field(default=None, compare=False)  # key into core.planets.STANDISH
+    retrograde: bool = field(default=False, compare=False)      # orbits its parent clockwise (Triton)
 
     def __post_init__(self):
         if not self.mu > 0.0:
@@ -51,7 +53,7 @@ class Body:
     @classmethod
     def create(cls, name: str, mu, radius, J2: float = 0.0, rotation_rate=0.0,
                flattening: float = 0.0, atmosphere=None, source: str = "", parent: Body | None = None,
-               semi_major_axis=0.0) -> Body:
+               semi_major_axis=0.0, retrograde: bool = False) -> Body:
         """Create from values with units. Plain numbers are taken as SI."""
         return cls(
             name=name,
@@ -64,6 +66,7 @@ class Body:
             source=source,
             parent=parent,
             semi_major_axis=units.to_si(semi_major_axis, units.LENGTH),
+            retrograde=retrograde,
         )
 
     @property
@@ -213,7 +216,7 @@ def _moon(name: str, parent: Body, gm_km3: float, radius_km: float, a_km: float,
     return Body(name=name, mu=gm_km3 * 1e9, radius=radius_km * 1e3,
                 rotation_rate=2.0 * math.pi / (period_days * DAY),
                 source="μ, R (mean): JPL SSD satellite physical parameters; orbit: JPL SSD mean elements",
-                parent=parent, semi_major_axis=a_km * 1e3)
+                parent=parent, semi_major_axis=a_km * 1e3, retrograde=period_days < 0)
 
 
 Phobos = _moon("Phobos", Mars, 0.0007087, 11.08, 9375.0, 0.3187)
@@ -244,7 +247,7 @@ Triton = _moon("Triton", Neptune, 1428.49546, 1352.60, 354800.0, -5.8792)
 PLANETS = (Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune)
 MOONS = (Moon, Phobos, Deimos, Io, Europa, Ganymede, Callisto, Mimas, Enceladus, Tethys, Dione, Rhea, Titan,
          Iapetus, Miranda, Ariel, Umbriel, Titania, Oberon, Triton)
-BODIES = {b.name: b for b in (Sun,) + PLANETS + MOONS}
+BODIES = MappingProxyType({b.name: b for b in (Sun,) + PLANETS + MOONS})   # read-only
 
 
 def get(name) -> Body:

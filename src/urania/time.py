@@ -25,6 +25,7 @@ _DT_J2000 = datetime(2000, 1, 1, 12, 0, 0)
 
 _FRACTION = re.compile(r"(\d{2}:\d{2}:\d{2})\.(\d+)")
 _TIME_ZONE = re.compile(r"(?:[zZ]|[+-]\d{2}:?\d{2})$")
+_OFFSET = re.compile(r"(?<=\d)([+-]\d{2}):?(\d{2})$")
 
 
 def _parse_iso(text: str) -> datetime:
@@ -70,8 +71,9 @@ class Epoch:
         """An Epoch from whatever describes a time: an Epoch, a string, a datetime or an astropy Time.
 
         Strings are ISO 8601 dates or times, e.g. "2026-11-01" or "2026-11-01 12:30". They are read as TDB like
-        `from_iso`, unless they end in "Z" or "UTC", which marks UTC ("2026-11-01T12:30Z"). A datetime with a
-        time zone is converted from UTC; a naive datetime is TDB.
+        `from_iso`, unless they end in "Z" or "UTC" (UTC, "2026-11-01T12:30Z") or carry a UTC offset
+        ("2026-11-01T21:30+09:00", a civil time zone). A datetime with a time zone is converted the same way;
+        a naive datetime is TDB.
         """
         if isinstance(value, Epoch):
             return value
@@ -82,6 +84,10 @@ class Epoch:
                 return cls.from_utc(text[:-3].strip())
             if upper.endswith("Z"):
                 return cls.from_utc(text)
+            if len(text) > 10 and _OFFSET.search(text):
+                text = _OFFSET.sub(lambda m: f"{m.group(1)}:{m.group(2)}", text)
+                text = _FRACTION.sub(lambda m: f"{m.group(1)}.{m.group(2)[:6].ljust(6, '0')}", text)
+                return cls.parse(datetime.fromisoformat(text))
             return cls.from_iso(text)
         if isinstance(value, datetime):
             if value.tzinfo is not None:

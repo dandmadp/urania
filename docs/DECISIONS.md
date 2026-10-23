@@ -285,3 +285,13 @@
   anything with a time unit is a duration.
 - `summary()` gives the few numbers people look for first, in km/s, days and degrees, plus the propellant from
   the rocket equation when mass and Isp are given; `explain()` stays the full derivation.
+
+## D41. Robustness rules from the 0.0.3 review
+- The universal Kepler iteration stops when its step reaches the rounding noise of F (the terms of F can be
+  1e12 times F for strongly hyperbolic arcs over months), and falls back to bisection, which always converges
+  because F(χ) is monotonic. Fast interplanetary Lambert legs had failed on this.
+- Lambert solutions are checked by propagating v1 for the time of flight; a miss larger than 1e-6 of the orbit's
+  size raises ValueError. This turns the ill-conditioned cases (transfer angles near 0° or 360°) into clear errors
+  instead of wrong answers, at about 30 µs per solve.
+- Bodies record retrograde orbits (Triton). Hohmann transfers between moons orbiting in opposite directions are
+  rejected; transfers to or from a retrograde moon assume the spacecraft orbits in the moon's direction.

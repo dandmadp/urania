@@ -56,7 +56,8 @@ def _from_string(text: str) -> u.Quantity:
     try:
         q = u.Quantity(text)
     except (TypeError, ValueError) as exc:
-        raise UnitError(f"Cannot read {text!r} as a value with a unit (e.g. '400 km', '51.6 deg')") from exc
+        raise UnitError(f"Cannot read {text!r} as a value with a unit, e.g. '400 km', '51.6 deg', '90 min' "
+                        f"(unit names are case-sensitive)") from exc
     if q.unit == u.dimensionless_unscaled:
         raise UnitError(f"{text!r} has no unit; write it with one, e.g. '{text.strip()} km'")
     return q

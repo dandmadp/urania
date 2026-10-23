@@ -345,6 +345,9 @@ def plot_porkchop(p, ax=None, max_c3=None):
     x = p.departure_jd - p.departure_jd[0]
     y = p.arrival_jd - p.departure_jd[0]
     c3 = p.c3 / 1e6
+    if min(c3.shape) < 2:
+        raise ValueError(f"A porkchop plot needs at least 2 departure and 2 arrival dates (grid {c3.shape[1]}×"
+                         f"{c3.shape[0]}); use a smaller step")
     if not np.all(np.isnan(c3)):
         low = np.nanmin(c3)
         top = 4 * low if max_c3 is None else units.to_si(max_c3, units.u.km**2 / units.u.s**2) / 1e6

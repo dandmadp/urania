@@ -10,7 +10,7 @@ import math
 import numpy as np
 from scipy.optimize import brentq, minimize_scalar
 
-from .propagate import stumpff
+from .propagate import kepler_propagate, stumpff
 
 TWO_PI = 2.0 * math.pi
 _BIG = 1e30
@@ -59,6 +59,8 @@ def lambert(r1, r2, tof: float, mu: float, *, prograde: bool = True, revolutions
         (v1, v2) [m/s]
     """
     r1, r2 = np.asarray(r1, dtype=float), np.asarray(r2, dtype=float)
+    if not (np.all(np.isfinite(r1)) and np.all(np.isfinite(r2))):
+        raise ValueError("Positions must be finite")
     if not tof > 0.0 or not math.isfinite(tof):
         raise ValueError(f"Time of flight must be positive and finite: {tof}")
     if revolutions < 0 or int(revolutions) != revolutions:
@@ -116,7 +118,25 @@ def lambert(r1, r2, tof: float, mu: float, *, prograde: bool = True, revolutions
     gdot = 1.0 - y / r2n
     v1 = (r2 - f_ * r1) / g_
     v2 = (gdot * r2 - r1) / g_
+    _check(r1, v1, r2, tof, mu, dnu)
     return v1, v2
+
+
+def _check(r1, v1, r2, tof: float, mu: float, dnu: float) -> None:
+    """Propagate the solution and reject it when it misses r2: near 0° and 360° the Lagrange coefficient g
+    vanishes and the velocities lose all precision (the problem is ill-conditioned there)."""
+    energy = float(v1 @ v1) / 2.0 - mu / float(np.linalg.norm(r1))
+    scale = max(float(np.linalg.norm(r1)), float(np.linalg.norm(r2)),
+                abs(mu / (2.0 * energy)) if energy != 0.0 else math.inf)
+    try:
+        r, _ = kepler_propagate(r1, v1, tof, mu)
+        miss = float(np.linalg.norm(r - r2))
+    except (RuntimeError, ValueError, FloatingPointError):
+        miss = math.inf
+    if not miss <= 1e-6 * scale:
+        raise ValueError(f"Lambert solution is inaccurate (misses r2 by {miss:.3g} m; transfer angle "
+                         f"{math.degrees(dnu):.6f}°, time of flight {tof:.6g} s). The problem is ill-conditioned for "
+                         f"transfer angles near 0° or 360° and for extremely short times of flight")
 
 
 def min_tof(r1, r2, mu: float, revolutions: int, *, prograde: bool = True,

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.3 (2026-10-23)
 
 ### Added
 - Beginner conveniences: strings with units (`"500 km"`, `"51.6 deg"`, `"90 min"`) wherever a value is taken;
@@ -38,6 +38,15 @@
 
 ### Fixed
 - `core.frames.look_angles` could return an azimuth of 360° instead of 0°.
+- Two-body propagation of strongly hyperbolic orbits over long times (fast interplanetary arcs) could fail to
+  converge on rounding noise or overflow; the iteration now accounts for that noise and falls back to bisection.
+- Lambert solutions are verified by propagation; ill-conditioned cases (transfer angles near 0° or 360°) raise
+  instead of returning inaccurate velocities. Non-finite positions are rejected.
+- `Orbit.footprint` returned a negative slant range at 90° elevation.
+- `Orbit.deorbit` accepted hyperbolic orbits and perigees below the body's center.
+- Hohmann transfers to Triton assumed a prograde orbit; retrograde moons are now marked (`Body.retrograde`).
+- `flyby_mission(revolutions=numpy integer)` failed; a porkchop plot of a 1×1 grid raised an obscure error.
+- Date strings with a UTC offset ("2026-11-01T21:30+09:00") are accepted.
 
 ## 0.0.2 (2026-10-08)
 

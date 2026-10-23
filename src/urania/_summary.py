@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 
 DAY = 86400.0
 
@@ -126,7 +125,7 @@ Propagation and operations (Earth)
 
 Maneuvers (every result has .summary(mass=, isp=), .explain(), .plot())
   ur.LEO.transfer_to(ur.GEO)                                Hohmann transfer
-  chaser.rendezvous(target, "345 min", revolutions=3)       meet another spacecraft
+  chaser.rendezvous(target, "345 min", revolutions=3, branch="right")   meet another spacecraft
   orbit.phasing("10 deg")   orbit.deorbit()                 move along the orbit, dispose
 
 Planets and moons
