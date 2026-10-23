@@ -3,6 +3,14 @@
 ## Unreleased
 
 ### Added
+- Beginner conveniences: strings with units (`"500 km"`, `"51.6 deg"`, `"90 min"`) wherever a value is taken;
+  dates as strings, datetimes or astropy Times (`Epoch.parse`; a trailing "Z" or "UTC" means UTC); bodies by
+  name (`ur.body("titan")`, `"Mars"` in transfers, orbits and missions); `hours=` and `minutes=` for
+  propagation; `summary(mass=, isp=)` on every transfer and mission; `orbit.altitude`; `ur.cheatsheet()`;
+  `ur.u` (astropy units); "Did you mean" suggestions for misspelled bodies, models and methods.
+- `UnitWarning` for plain numbers that are almost surely unit mistakes (angles above 2π, altitudes below 1 km,
+  semi-major axes or positions under 1% of the body's radius), pointing at the caller's line.
+- `sun_synchronous` around another planet uses that planet's year automatically.
 - Mercury, Venus, Jupiter, Saturn, Uranus and Neptune, and 20 major moons (Phobos to Triton), with JPL constants.
   Bodies record their parent, mean orbit radius and sphere of influence (`Body.soi`, `Body.orbital_period`).
 - `Body.hohmann_to`: patched-conic Hohmann transfer between planets, between moons of one planet, or between a

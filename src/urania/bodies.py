@@ -102,7 +102,7 @@ class Body:
         """
         from .interplanetary import hohmann_between
 
-        return hohmann_between(self, target, parking_altitude, capture_altitude,
+        return hohmann_between(self, get(target), parking_altitude, capture_altitude,
                                capture_ecc=capture_ecc, after=after)
 
     def lambert_to(self, target: Body, departure, arrival, parking_altitude, capture_altitude=None, **kwargs):
@@ -113,7 +113,7 @@ class Body:
         """
         from .missions import lambert_transfer
 
-        return lambert_transfer(self, target, departure, arrival, parking_altitude, capture_altitude, **kwargs)
+        return lambert_transfer(self, get(target), departure, arrival, parking_altitude, capture_altitude, **kwargs)
 
     def flyby(self, v_inf_in, altitude, *, epoch=None, b_angle=0.0):
         """Unpowered flyby with incoming excess velocity v∞_in (3-vector, ecliptic frame); returns a `Flyby`.
@@ -244,3 +244,19 @@ Triton = _moon("Triton", Neptune, 1428.49546, 1352.60, 354800.0, -5.8792)
 PLANETS = (Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune)
 MOONS = (Moon, Phobos, Deimos, Io, Europa, Ganymede, Callisto, Mimas, Enceladus, Tethys, Dione, Rhea, Titan,
          Iapetus, Miranda, Ariel, Umbriel, Titania, Oberon, Triton)
+BODIES = {b.name: b for b in (Sun,) + PLANETS + MOONS}
+
+
+def get(name) -> Body:
+    """A preset body by name, ignoring case: ``get("mars")``. A Body is returned unchanged."""
+    if isinstance(name, Body):
+        return name
+    if not isinstance(name, str):
+        raise TypeError(f"Expected a Body or a body name: {name!r}")
+    for key, body in BODIES.items():
+        if key.lower() == name.strip().lower():
+            return body
+    from ._hints import did_you_mean
+
+    raise ValueError(f"Unknown body {name!r}." + did_you_mean(name, BODIES)
+                     + f" Available: {', '.join(BODIES)}")

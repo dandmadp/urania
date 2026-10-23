@@ -271,3 +271,17 @@
   far below receiver tuning steps.
 - Footprint and beta angle assume a spherical Earth; the eclipse fraction from β uses a cylindrical shadow and
   is within 1% of the orbit of the conical eclipse search. `Trajectory.eclipses()` remains the precise tool.
+
+## D40. Beginner conveniences without giving up SI (v0.1)
+- Plain numbers stay SI (D6): changing that would silently change results for existing users. Instead, the unit
+  boundary also accepts strings with units ("500 km", parsed by astropy), so beginners need no astropy import.
+- The most common silent mistakes (degrees or kilometers passed as plain numbers) now raise a `UnitWarning` with
+  the fix, attached to the caller's line. Thresholds are chosen so correct SI input never warns: angles above 2π,
+  altitudes between 0 and 1000 m (no orbit is that low), semi-major axes or positions under 1% of the body's
+  radius. A warning, not an error, because scripts may compute such values on purpose.
+- Date strings are TDB, like `Epoch.from_iso`, so the same string means the same instant everywhere; a trailing
+  "Z" or "UTC" selects UTC explicitly (the difference is 69 s). Timezone-aware datetimes are converted from UTC.
+- `lambert_to` takes the arrival as a date or a time of flight; a string starting with YYYY-MM-DD is a date,
+  anything with a time unit is a duration.
+- `summary()` gives the few numbers people look for first, in km/s, days and degrees, plus the propellant from
+  the rocket equation when mass and Isp are given; `explain()` stays the full derivation.

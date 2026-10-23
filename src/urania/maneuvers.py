@@ -89,6 +89,12 @@ class Transfer:
         """Orbit after the transfer."""
         return self.orbits[-1] if self.orbits else self.initial
 
+    def summary(self, mass=None, isp=None):
+        """Key numbers in km/s, days and degrees, one per line; with mass and isp also the propellant."""
+        from ._summary import transfer_summary
+
+        return transfer_summary(self, mass, isp)
+
     def propellant(self, mass, isp) -> float:
         """Propellant mass [kg] for total_dv from the rocket equation, given the wet mass and Isp [s]."""
         from .core.propulsion import propellant_mass
@@ -129,7 +135,10 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
     from .orbits import Orbit
 
     if method not in ("hohmann", "bielliptic"):
-        raise ValueError(f"Unknown transfer method: {method!r} (hohmann, bielliptic)")
+        from ._hints import did_you_mean
+
+        raise ValueError(f"Unknown transfer method: {method!r} (hohmann, bielliptic)."
+                         + did_you_mean(method, ("hohmann", "bielliptic")))
     body = initial.body
     if target.body != body:
         raise ValueError(f"Central bodies differ: {body.name} → {target.body.name}")
@@ -354,7 +363,7 @@ def deorbit(initial: Orbit, perigee_altitude) -> Transfer:
 
     body = initial.body
     mu = body.mu
-    h_p = units.to_si(perigee_altitude, units.LENGTH)
+    h_p = units.altitude(perigee_altitude, "perigee_altitude")
     if initial.ecc > CIRCULAR_ECC_TOL:
         coast = ((math.pi - initial.M) % (2.0 * math.pi)) / initial.mean_motion
     else:

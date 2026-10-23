@@ -76,6 +76,12 @@ class BodyTransfer:
         """Arrival time (departure_epoch + tof)."""
         return None if self.departure_epoch is None else self.departure_epoch + self.tof
 
+    def summary(self, mass=None, isp=None):
+        """Key numbers in km/s, days and degrees, one per line; with mass and isp also the propellant."""
+        from ._summary import body_transfer_summary
+
+        return body_transfer_summary(self, mass, isp)
+
     def propellant(self, mass, isp) -> float:
         """Propellant mass [kg] for total_dv from the rocket equation, given the wet mass and Isp [s]."""
         from .core.propulsion import propellant_mass
@@ -115,7 +121,7 @@ def _relation(origin: Body, target: Body) -> tuple[str, Body]:
 
 
 def _altitude(value, name: str, body: Body) -> float:
-    h = units.to_si(value, units.LENGTH)
+    h = units.altitude(value, name)
     if not math.isfinite(h) or h < 0.0:
         raise ValueError(f"{name} must be a finite altitude ≥ 0: {h} m")
     if body.soi <= body.radius:
@@ -219,8 +225,7 @@ def hohmann_between(origin: Body, target: Body, parking_altitude, capture_altitu
 
     departure = longitude = None
     if after is not None:
-        if not isinstance(after, Epoch):
-            raise TypeError(f"after must be an Epoch: {after!r}")
+        after = Epoch.parse(after)
         if kind != "siblings" or origin.ephemeris is None or target.ephemeris is None:
             raise ValueError("A departure date needs two planets with an ephemeris (Mercury to Neptune); "
                              "moon positions are not modelled")

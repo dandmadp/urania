@@ -139,10 +139,12 @@ def test_after_catches_surface_crossing_between_endpoints():
         sub.after(sub.period)
 
 
-def test_sun_synchronous_other_body_needs_rate():
-    """Around Mars the Earth year used to be applied silently (regression test)."""
+def test_sun_synchronous_other_body_uses_its_year():
+    """Around Mars the Earth year used to be applied silently (regression test); now Mars's year is used."""
+    auto = sun_synchronous(300 * u.km, body=Mars)
+    assert auto.raan_rate == pytest.approx(2 * math.pi / Mars.orbital_period, rel=1e-6)
     with pytest.raises(ValueError, match="raan_rate"):
-        sun_synchronous(300 * u.km, body=Mars)
+        sun_synchronous(100 * u.km, body="Moon")
     rate = 2 * math.pi / (686.98 * DAY)
     o = sun_synchronous(300 * u.km, body=Mars, raan_rate=rate)
     assert o.raan_rate == pytest.approx(rate)

@@ -126,11 +126,11 @@ def test_mission_errors():
         ur.flyby_mission([ur.Earth, ur.Mars], d[::-1], 300 * u.km)
     with pytest.raises(ValueError, match="one date per body"):
         ur.flyby_mission([ur.Earth, ur.Mars], d[:1], 300 * u.km)
-    with pytest.raises(TypeError, match="Epochs"):
-        ur.flyby_mission([ur.Earth, ur.Mars], ["2026-11-01", d[1]], 300 * u.km)
+    with pytest.raises(TypeError, match="as a time"):
+        ur.flyby_mission([ur.Earth, ur.Mars], [20261101, d[1]], 300 * u.km)
     with pytest.raises(ValueError, match="one value per leg"):
         ur.flyby_mission([ur.Earth, ur.Mars], d, 300 * u.km, revolutions=[0, 1])
-    with pytest.raises(TypeError, match="start Epoch"):
+    with pytest.raises(TypeError, match="start, end"):
         ur.porkchop(ur.Earth, ur.Mars, d[0], d, step=10 * u.day)
 
 

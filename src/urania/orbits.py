@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass, field
 from functools import cached_property
 
@@ -20,6 +21,21 @@ from .time import J2000, Epoch
 
 
 # name → (display unit, SI unit) for Orbit.qty
+def _body(body) -> Body:
+    """A Body, or a body name such as "Mars"."""
+    if isinstance(body, str):
+        from .bodies import get
+
+        return get(body)
+    return body
+
+
+def _has_unit(value) -> bool:
+    if isinstance(value, (u.Quantity, str)):
+        return True
+    return isinstance(value, (list, tuple)) and any(isinstance(x, (u.Quantity, str)) for x in value)
+
+
 _QTY_UNITS = {
     "r": (u.km, u.m), "v": (u.km / u.s, u.m / u.s),
     "a": (u.km, u.m), "p": (u.km, u.m), "r_periapsis": (u.km, u.m), "r_apoapsis": (u.km, u.m),
@@ -88,6 +104,11 @@ class Orbit:
     epoch: Epoch = field(default=J2000)
 
     def __post_init__(self):
+        if isinstance(self.body, str):
+            from .bodies import get
+
+            object.__setattr__(self, "body", get(self.body))
+        object.__setattr__(self, "epoch", Epoch.parse(self.epoch))
         object.__setattr__(self, "r", _frozen_vector(self.r))
         object.__setattr__(self, "v", _frozen_vector(self.v))
 
@@ -96,8 +117,13 @@ class Orbit:
     @classmethod
     def from_vectors(cls, body: Body, r, v, epoch: Epoch = J2000) -> Orbit:
         """From a state vector, given as Quantities or SI numbers."""
-        return cls(body, units.to_si(r, units.LENGTH),
-                   units.to_si(v, units.VELOCITY), epoch)
+        r_si = units.to_si(r, units.LENGTH)
+        body = _body(body)
+        if not _has_unit(r) and 0.0 < np.linalg.norm(r_si) < 0.01 * body.radius:
+            warnings.warn(f"The position is a plain number vector of length {np.linalg.norm(r_si):g} m, inside "
+                          f"{body.name}. Plain numbers are meters; for kilometers multiply by u.km",
+                          units.UnitWarning, stacklevel=units._user_stacklevel())
+        return cls(body, r_si, units.to_si(v, units.VELOCITY), epoch)
 
     @classmethod
     def from_elements(cls, body: Body, *, a=None, p=None, ecc: float = 0.0,
@@ -108,8 +134,14 @@ class Orbit:
         Hyperbolas use a < 0; parabolas (ecc = 1) can only be given with p.
         Angle conventions for circular and equatorial orbits follow core.elements.
         """
+        body = _body(body)
         if (a is None) == (p is None):
             raise ValueError("Specify exactly one of a and p")
+        size = a if p is None else p
+        if not _has_unit(size) and 0.0 < abs(units.to_si(size, units.LENGTH)) < 0.01 * body.radius:
+            warnings.warn(f"{'a' if p is None else 'p'}={units.to_si(size, units.LENGTH):g} is a plain number, "
+                          f"so it is read as meters, far smaller than {body.name}'s radius. For kilometers write "
+                          f"{units.to_si(size, units.LENGTH):g} * u.km", units.UnitWarning, stacklevel=units._user_stacklevel())
         if ecc < 0.0:
             raise ValueError(f"Eccentricity must be non-negative: ecc={ecc}")
         if p is None:
@@ -140,7 +172,8 @@ class Orbit:
         arglat is the angle from the ascending node to the position (from the x axis for an
         equatorial orbit).
         """
-        a = body.radius + units.to_si(altitude, units.LENGTH)
+        body = _body(body)
+        a = body.radius + units.altitude(altitude)
         return cls.from_elements(body, a=a, inc=inc, raan=raan, nu=arglat, epoch=epoch)
 
     @classmethod
@@ -150,8 +183,9 @@ class Orbit:
 
         Example: a 400 x 600 km orbit is ``Orbit.from_apsides(Earth, 400 * u.km, 600 * u.km)``.
         """
-        rp = body.radius + units.to_si(periapsis_altitude, units.LENGTH)
-        ra = body.radius + units.to_si(apoapsis_altitude, units.LENGTH)
+        body = _body(body)
+        rp = body.radius + units.altitude(periapsis_altitude, "periapsis_altitude")
+        ra = body.radius + units.altitude(apoapsis_altitude, "apoapsis_altitude")
         a, ecc = _tb.apsides_to_ae(rp, ra)
         return cls.from_elements(body, a=a, ecc=ecc, inc=inc, raan=raan, argp=argp, nu=nu,
                                  epoch=epoch)
@@ -166,6 +200,11 @@ class Orbit:
     def summary(self) -> str:
         """All properties in convenient units, one per line."""
         return repr(self.qty)
+
+    @property
+    def altitude(self) -> float:
+        """Current altitude above the equatorial radius [m]."""
+        return float(np.linalg.norm(self.r)) - self.body.radius
 
     @cached_property
     def elements(self) -> _el.Elements:
@@ -269,12 +308,12 @@ class Orbit:
 
     # ---------------------------------------------------------- propagation
 
-    def propagate(self, duration=None, *, days=None, model="twobody", **kwargs):
+    def propagate(self, duration=None, *, days=None, hours=None, minutes=None, model="twobody", **kwargs):
         """Propagate the orbit and return a Trajectory. The orbit itself is unchanged.
 
         Args:
-            duration: propagation time (seconds or a time Quantity). Give this or days.
-            days: propagation time [day]. Plain numbers are days; Quantities are converted.
+            duration: propagation time (seconds, a time Quantity or a string such as "90 min"),
+                or one of days, hours, minutes (plain numbers in that unit).
             model: "twobody", "j2", "j2+drag" or fidelity 0 to 2
             **kwargs: cd, area, mass, density (constant, function or Environment),
                 method, rtol, atol, n_points. See `propagation.propagate`.
@@ -283,9 +322,9 @@ class Orbit:
         """
         from .propagation import propagate, resolve_duration
 
-        return propagate(self, resolve_duration(duration, days), model=model, **kwargs)
+        return propagate(self, resolve_duration(duration, days, hours, minutes), model=model, **kwargs)
 
-    def after(self, duration=None, *, days=None, model="twobody", **kwargs) -> Orbit:
+    def after(self, duration=None, *, days=None, hours=None, minutes=None, model="twobody", **kwargs) -> Orbit:
         """The orbit after propagating; shorthand for ``propagate(...).final``.
 
         Raises if the propagation stops early (e.g. on reaching the surface) instead of
@@ -295,7 +334,7 @@ class Orbit:
         """
         from .propagation import propagate, resolve_duration
 
-        duration = resolve_duration(duration, days)
+        duration = resolve_duration(duration, days, hours, minutes)
         tr = propagate(self, duration, model=model, **kwargs)
         if tr.info.terminated:
             raise RuntimeError(f"Propagation stopped early ({tr.info.terminated}) after "
@@ -354,7 +393,7 @@ class Orbit:
 
         return phasing(self, angle, target=target, revolutions=revolutions)
 
-    def deorbit(self, perigee_altitude=50e3):
+    def deorbit(self, perigee_altitude="50 km"):
         """One retrograde burn that lowers periapsis to perigee_altitude (default 50 km); a Transfer."""
         from .maneuvers import deorbit
 
@@ -411,15 +450,18 @@ def sun_synchronous(altitude, *, ecc: float = 0.0, raan=0.0, epoch: Epoch = J200
                     body: Body = Earth, raan_rate=None) -> Orbit:
     """Sun-synchronous orbit: the inclination makes the J2 nodal rate follow the Sun.
 
-    For Earth the nodal rate is 360° per tropical year. For another body pass its own rate,
-    360° per its orbital period around the Sun (e.g. Mars: ``2*pi / (686.98 * 86400)`` rad/s).
+    For Earth the nodal rate is 360° per tropical year; for another planet, 360° per its orbital period
+    around the Sun (``body.orbital_period``). Pass raan_rate to override.
     """
-    a = body.radius + units.to_si(altitude, units.LENGTH)
+    body = _body(body)
+    a = body.radius + units.altitude(altitude)
     if raan_rate is None:
-        if body != Earth:
-            raise ValueError(f"Pass raan_rate for {body.name}: 360° per its orbital period "
-                             f"around the Sun, in rad/s (the default is Earth's year)")
-        rate = SSO_RAAN_RATE
+        if body == Earth:
+            rate = SSO_RAAN_RATE
+        elif body.parent is not None and body.parent.parent is None:
+            rate = 2.0 * math.pi / body.orbital_period
+        else:
+            raise ValueError(f"Pass raan_rate for {body.name}: 360° per its year around the Sun, in rad/s")
     else:
         rate = units.to_si(raan_rate, units.ANGULAR_VELOCITY)
     inc = _j2.sso_inclination(a, ecc, body.mu, body.radius, body.J2, rate)

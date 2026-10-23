@@ -52,7 +52,10 @@ def parse_model(model) -> frozenset[str]:
         raise NotImplementedError(f"{sorted(future)} perturbations will be supported after the MVP")
     unknown = terms - _SUPPORTED_TERMS
     if unknown:
-        raise ValueError(f"Unknown model terms: {sorted(unknown)} (available: {sorted(_SUPPORTED_TERMS)})")
+        from ._hints import did_you_mean
+
+        raise ValueError(f"Unknown model terms: {sorted(unknown)} (available: {sorted(_SUPPORTED_TERMS)})."
+                         + did_you_mean(sorted(unknown)[0], _SUPPORTED_TERMS))
     return frozenset(terms | {"twobody"})
 
 
@@ -214,14 +217,20 @@ class Trajectory:
         return plot_trajectory(self, ax, kind)
 
 
-def resolve_duration(duration, days) -> float:
-    """Convert duration (seconds or time Quantity) or days (number or Quantity) to seconds."""
-    if (duration is None) == (days is None):
-        raise ValueError("Specify exactly one of duration and days")
-    if days is not None:
-        seconds = units.to_si(days, u.day) * SECONDS_PER_DAY
+def resolve_duration(duration, days=None, hours=None, minutes=None) -> float:
+    """Seconds from exactly one of: duration (seconds, a time Quantity or a string such as "90 min"),
+    days, hours or minutes (plain numbers in that unit, or Quantities)."""
+    given = [(name, x) for name, x in (("duration", duration), ("days", days), ("hours", hours),
+                                       ("minutes", minutes)) if x is not None]
+    if len(given) != 1:
+        raise ValueError("Give the time span once: duration (e.g. '90 min'), days, hours or minutes"
+                         + (f" (got {', '.join(n for n, _ in given)})" if given else ""))
+    name, value = given[0]
+    if name == "duration":
+        seconds = units.to_si(value, units.TIME)
     else:
-        seconds = units.to_si(duration, units.TIME)
+        unit = {"days": u.day, "hours": u.hour, "minutes": u.min}[name]
+        seconds = units.to_si(value, unit) * unit.to(u.s)
     if not isinstance(seconds, float):
         raise TypeError("The propagation time must be a single value, not an array")
     if not math.isfinite(seconds):

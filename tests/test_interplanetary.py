@@ -179,8 +179,8 @@ def test_errors():
         ur.Earth.hohmann_to(ur.Mars, 300 * u.km, 300 * u.km, capture_ecc=1.0)
     with pytest.raises(ValueError, match="ephemeris"):
         ur.Io.hohmann_to(ur.Europa, 100 * u.km, after=ur.J2000)
-    with pytest.raises(TypeError, match="Epoch"):
-        ur.Earth.hohmann_to(ur.Mars, 300 * u.km, after="2026-01-01")
+    with pytest.raises(TypeError, match="as a time"):
+        ur.Earth.hohmann_to(ur.Mars, 300 * u.km, after=20260101)
     with pytest.raises(ur.units.UnitError):
         ur.Earth.hohmann_to(ur.Mars, 300 * u.s)
 

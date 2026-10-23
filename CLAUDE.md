@@ -61,4 +61,5 @@ v0.1 (SPEC.md section 8):
 - [x] Planets and moons, patched-conic `Body.hohmann_to` (`interplanetary.py`, `core/interplanetary.py`, `core/planets.py`) — D35, D36
 - [x] Lambert (`core/lambert.py`), porkchop and gravity assists (`missions.py`, `core/flyby.py`) — D37, D38
 - [x] Satellite operations: rendezvous, phasing, deorbit, relative motion, Doppler, footprint, beta angle, propellant (`satellite.py`) — D39
+- [x] Beginner conveniences: strings for units/dates/bodies, UnitWarning, summary(), cheatsheet() — D40
 - Validation references: Skyfield (dev dependency) for ground tracks and passes; full propagation for lifetime

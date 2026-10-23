@@ -8,6 +8,7 @@ the incoming and outgoing v∞ with a flyby, powered at periapsis when the magni
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -30,6 +31,22 @@ def _ro(x) -> np.ndarray:
     a = np.array(x, dtype=float)
     a.flags.writeable = False
     return a
+
+
+def _is_duration(x) -> bool:
+    """A time span (seconds, a time Quantity or a string such as "300 day") rather than a date."""
+    import astropy.units as u
+
+    if isinstance(x, (int, float)):
+        return True
+    if isinstance(x, u.Quantity):
+        return x.unit.physical_type == "time"
+    if isinstance(x, str):
+        try:
+            return u.Quantity(x).unit.physical_type == "time"
+        except (TypeError, ValueError):
+            return False
+    return False
 
 
 def _require_planet(body: Body) -> None:
@@ -197,6 +214,12 @@ class Mission:
         """Every flyby passes above its minimum altitude."""
         return all(f.feasible for f in self.flybys)
 
+    def summary(self, mass=None, isp=None):
+        """Key numbers in km/s, days and degrees, one per line; with mass and isp also the propellant."""
+        from ._summary import mission_summary
+
+        return mission_summary(self, mass, isp)
+
     def propellant(self, mass, isp) -> float:
         """Propellant mass [kg] for total_dv (rocket equation), starting from the wet mass."""
         from .core.propulsion import propellant_mass
@@ -221,7 +244,7 @@ class Mission:
 
 
 def _altitude(value, name: str, body: Body) -> float:
-    h = units.to_si(value, units.LENGTH)
+    h = units.altitude(value, name)
     if not math.isfinite(h) or h < 0.0:
         raise ValueError(f"{name} must be a finite altitude ≥ 0: {h} m")
     return h
@@ -252,14 +275,14 @@ def flyby_mission(sequence, dates, parking_altitude, capture_altitude=None, *, c
         branch: multi-revolution Lambert branch, "left" or "right"
         prograde: heliocentric direction of motion (prograde for every planet mission)
     """
-    seq, dates = list(sequence), list(dates)
+    from .bodies import get
+
+    seq = [get(b) for b in sequence]
+    dates = [Epoch.parse(d) for d in dates]
     if len(seq) < 2 or len(seq) != len(dates):
         raise ValueError(f"Need at least two bodies and one date per body ({len(seq)} bodies, {len(dates)} dates)")
     for b in seq:
         _require_planet(b)
-    for d in dates:
-        if not isinstance(d, Epoch):
-            raise TypeError(f"dates must be Epochs: {d!r}")
     if any(b - a <= 0 for a, b in zip(dates, dates[1:])):
         raise ValueError("dates must increase")
     revs = [revolutions] * (len(seq) - 1) if isinstance(revolutions, int) else list(revolutions)
@@ -307,8 +330,11 @@ def flyby_mission(sequence, dates, parking_altitude, capture_altitude=None, *, c
 
 def lambert_transfer(origin: Body, target: Body, departure: Epoch, arrival, parking_altitude,
                      capture_altitude=None, **kwargs) -> Mission:
-    """Direct Lambert transfer; arrival is an Epoch or a time of flight (duration)."""
-    if not isinstance(arrival, Epoch):
+    """Direct Lambert transfer; arrival is a time (Epoch or date string) or a time of flight ("300 day")."""
+    departure = Epoch.parse(departure)
+    if isinstance(arrival, str) and re.match(r"\s*\d{4}-\d{2}-\d{2}", arrival) or not _is_duration(arrival):
+        arrival = Epoch.parse(arrival)
+    else:
         arrival = departure + units.to_si(arrival, units.TIME)
     return flyby_mission([origin, target], [departure, arrival], parking_altitude, capture_altitude, **kwargs)
 
@@ -327,6 +353,7 @@ def flyby(body: Body, v_inf_in, altitude, *, epoch: Epoch | None = None, b_angle
     v_out = _fb.outgoing_v_inf(v_in, rp, body.mu, units.to_si(b_angle, units.ANGLE))
     v_body = None
     if epoch is not None:
+        epoch = Epoch.parse(epoch)
         v_body = planet_state(body, epoch)[1]
     return Flyby(body, epoch, v_in, v_out, rp, 0.0, v_body)
 
@@ -364,7 +391,10 @@ class Porkchop:
         grids = {"c3": self.c3, "v_inf_arrival": self.v_inf_arrival, "total_dv": self.total_dv,
                  "v_inf_sum": np.sqrt(self.c3) + self.v_inf_arrival}
         if criterion not in grids or grids[criterion] is None:
-            raise ValueError(f"criterion must be one of {[k for k, v in grids.items() if v is not None]}")
+            from ._hints import did_you_mean
+
+            valid = [k for k, v in grids.items() if v is not None]
+            raise ValueError(f"criterion must be one of {valid}." + did_you_mean(criterion, valid))
         grid = grids[criterion]
         if np.all(np.isnan(grid)):
             raise ValueError("No transfer on the grid")
@@ -385,12 +415,15 @@ class Porkchop:
 
 
 def _date_grid(span, step_days: float) -> np.ndarray:
+    if isinstance(span, (str, Epoch)):
+        raise TypeError("Give each date range as (start, end), e.g. ('2026-08-01', '2027-01-01')")
     try:
         start, stop = span
     except (TypeError, ValueError):
-        raise TypeError("Give each date range as (start Epoch, end Epoch)") from None
-    if not isinstance(start, Epoch) or not isinstance(stop, Epoch) or stop - start <= 0:
-        raise ValueError("Each date range needs two Epochs with start < end")
+        raise TypeError("Give each date range as (start, end), e.g. ('2026-08-01', '2027-01-01')") from None
+    start, stop = Epoch.parse(start), Epoch.parse(stop)
+    if stop - start <= 0:
+        raise ValueError("Each date range needs start < end")
     n = int(math.floor((stop.jd - start.jd) / step_days + 1e-9)) + 1
     return start.jd + step_days * np.arange(n)
 
@@ -405,6 +438,9 @@ def porkchop(origin: Body, target: Body, departure, arrival, *, step=5 * DAY, pa
         parking_altitude, capture_altitude: give both to get the total Δv grid (lengths)
         min_tof: skip transfers shorter than this (duration, default 10 days)
     """
+    from .bodies import get
+
+    origin, target = get(origin), get(target)
     _require_planet(origin)
     _require_planet(target)
     step_days = units.to_si(step, units.TIME) / DAY

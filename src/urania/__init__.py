@@ -1,10 +1,17 @@
-"""urania — an astrodynamics library that computes, shows and explains."""
+"""urania — an astrodynamics library that computes, shows and explains.
 
+New here? ``print(urania.cheatsheet())`` lists common tasks with one line of code each.
+"""
+
+from astropy import units as u
+
+from ._summary import cheatsheet
 from .bodies import (
-    MOONS, PLANETS, Ariel, Body, Callisto, Deimos, Dione, Earth, Enceladus, Europa, Ganymede, Iapetus, Io,
+    BODIES, MOONS, PLANETS, Ariel, Body, Callisto, Deimos, Dione, Earth, Enceladus, Europa, Ganymede, Iapetus, Io,
     Jupiter, Mars, Mercury, Mimas, Miranda, Moon, Neptune, Oberon, Phobos, Rhea, Saturn, Sun, Tethys, Titan,
     Titania, Triton, Umbriel, Uranus, Venus,
 )
+from .bodies import get as body
 from .eclipse import Eclipse, EclipseReport
 from .environment import Environment
 from .ground import GroundStation, GroundTrack, Pass, PassReport
@@ -21,6 +28,7 @@ from .tle import TLEOrbit
 __version__ = "0.0.2"
 
 __all__ = [
+    "u", "cheatsheet", "body", "BODIES",
     "Body", "Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
     "Moon", "Phobos", "Deimos", "Io", "Europa", "Ganymede", "Callisto",
     "Mimas", "Enceladus", "Tethys", "Dione", "Rhea", "Titan", "Iapetus",

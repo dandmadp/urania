@@ -171,19 +171,19 @@ class TLEOrbit:
             raise RuntimeError(f"SGP4 error {err[0]}: {SGP4_ERRORS[err[0]]}")
         return r[0], v[0]
 
-    def propagate(self, duration=None, *, days=None, start: Epoch | None = None,
+    def propagate(self, duration=None, *, days=None, hours=None, minutes=None, start: Epoch | None = None,
                   n_points: int | None = None) -> Trajectory:
         """Propagate with SGP4 and return a Trajectory.
 
         Args:
-            duration, days: propagation time (give one)
-            start: start epoch. Defaults to the TLE epoch.
+            duration, days, hours, minutes: propagation time (give one)
+            start: start epoch (Epoch or ISO string). Defaults to the TLE epoch.
             n_points: number of output points. Defaults to 100 per orbit.
         """
-        duration = resolve_duration(duration, days)
+        duration = resolve_duration(duration, days, hours, minutes)
         if n_points is not None and n_points < 2:
             raise ValueError(f"n_points must be at least 2 (start and end): {n_points}")
-        start = start or self.epoch
+        start = self.epoch if start is None else Epoch.parse(start)
         if n_points is None:
             n_points = min(max(math.ceil(abs(duration) / self.period * 100) + 1, 101), 200001)
         t = np.linspace(0.0, duration, n_points)

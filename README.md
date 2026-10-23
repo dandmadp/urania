@@ -44,6 +44,34 @@ Part of the `explain()` output:
    Δv = √(v₁² + v₂² − 2 v₁ v₂ cos α) = 2.4325 km/s
 ```
 
+## New to urania?
+
+```python
+import urania as ur
+
+print(ur.cheatsheet())             # common tasks, one line of code each
+
+orbit = ur.Orbit.circular("Earth", "500 km", inc="97.4 deg", epoch="2026-11-01")
+print(orbit.summary())             # every property in km, deg, min
+
+t = orbit.transfer_to(ur.GEO)
+print(t.summary(mass="12 kg", isp="220 s"))   # Δv, burns, time and the propellant it takes
+
+print(ur.Earth.hohmann_to("Mars", "300 km", "300 km", after="2026-01-01").summary())
+```
+
+- Values can be written as strings with units (`"500 km"`, `"97.4 deg"`, `"90 min"`) or as astropy Quantities
+  (`500 * ur.u.km`). Plain numbers are SI: meters, seconds, radians.
+- If a plain number looks like a unit mistake (an angle above 2π radians, which usually means degrees, or an
+  altitude below 1 km), a
+  `UnitWarning` points at your line and suggests the fix.
+- Dates are strings such as `"2026-11-01"` or `"2026-11-01 12:30"` (TDB), or `"2026-11-01T12:30Z"` for UTC;
+  datetimes and astropy Times work too. Bodies can be named: `"Mars"`, `ur.body("titan")`.
+- Time spans: `propagate(days=1)`, `hours=2`, `minutes=90` or `"90 min"`.
+- Every result has `summary()` (key numbers), `explain()` (formulas step by step) and `plot()`. In a script, call
+  `matplotlib.pyplot.show()` to open plot windows.
+- Misspelled options get a suggestion: `model="j2+darg"` → "Did you mean 'drag'?".
+
 ## Creating orbits
 
 Pass values with units (astropy), or plain numbers, which are taken as SI (m, m/s, rad).

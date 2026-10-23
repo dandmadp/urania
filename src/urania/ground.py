@@ -70,7 +70,8 @@ class GroundStation:
 
     def __post_init__(self):
         if not -math.pi / 2 <= self.lat <= math.pi / 2:
-            raise ValueError(f"Latitude must be within ±90°: {math.degrees(self.lat)}°")
+            raise ValueError(f"Latitude must be within ±90°: {math.degrees(self.lat):g}°. Plain numbers are "
+                             f"radians; write degrees as 36.4 * u.deg or '36.4 deg'")
 
     @classmethod
     def create(cls, name: str, lat, lon, alt=0.0) -> GroundStation:
