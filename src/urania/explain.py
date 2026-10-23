@@ -383,3 +383,75 @@ def explain_lifetime(life) -> Explanation:
                           f"(increase max_days to search further)")
     ex.assumptions.extend(life.assumptions)
     return ex
+
+
+# ---------------------------------------------------------------- body-to-body transfers
+
+def explain_body_transfer(t) -> Explanation:
+    """Patched-conic Hohmann transfer between bodies (Curtis ch. 8)."""
+    from .core import interplanetary as _ip
+
+    c, o, g = t.central, t.origin, t.target
+    mu = c.mu
+    a_t = t.a_transfer
+    ex = Explanation(f"Hohmann transfer {o.name} → {g.name} around {c.name} (patched conics)")
+    unit = (lambda x: f"{x / 1.495978707e11:.6f} AU") if c.parent is None else _km
+    ex.step(f"Hohmann ellipse around {c.name}",
+            f"μ = {mu:.6e} m³/s²",
+            f"r₁ = {unit(t.r1)},  r₂ = {unit(t.r2)}",
+            f"a_t = (r₁ + r₂)/2 = {unit(a_t)}",
+            f"tof = π√(a_t³/μ) = {t.tof / DAY:.2f} days")
+
+    v1, v2 = _tb.circular_velocity(t.r1, mu), _tb.circular_velocity(t.r2, mu)
+    vp, va = _tb.vis_viva(t.r1, a_t, mu), _tb.vis_viva(t.r2, a_t, mu)
+    r_park = o.radius + t.parking_altitude
+    if t.kind == "to_moon":
+        ex.step("Departure burn (in the parking orbit)",
+                f"v_c = √(μ/r₁) = {_kms(v1)},  v_t = √(μ(2/r₁ − 1/a_t)) = {_kms(vp)}",
+                f"Δv = |v_t − v_c| = {_kms(t.dv_departure)}")
+    else:
+        e, beta = _ip.hyperbola(t.v_inf_departure, r_park, o.mu)
+        ex.step(f"Leaving {o.name}",
+                f"speed of {o.name} V₁ = √(μ/r₁) = {_kms(v1)},  transfer speed √(μ(2/r₁ − 1/a_t)) = {_kms(vp)}",
+                f"v∞ = |difference| = {_kms(t.v_inf_departure)},  C3 = v∞² = {t.c3 / 1e6:.4f} km²/s²",
+                f"parking orbit r_p = {_km(r_park)} ({_km(t.parking_altitude)} altitude)",
+                f"Δv = √(v∞² + 2μ/r_p) − √(μ/r_p) = {_kms(t.dv_departure)}  (μ of {o.name})",
+                f"escape hyperbola e = 1 + r_p v∞²/μ = {e:.5f},  β = arccos(1/e) = {_deg(beta)}")
+
+    if t.kind == "to_parent":
+        lines = [f"transfer speed at r₂: √(μ(2/r₂ − 1/a_t)) = {_kms(va)}"]
+        v_cap = math.sqrt(mu * (1.0 + t.capture_ecc) / t.r2)
+        lines += [f"capture orbit speed at periapsis √(μ(1 + e)/r₂) = {_kms(v_cap)}  (e = {t.capture_ecc:g})",
+                  f"Δv = {_kms(t.dv_arrival)}"]
+        ex.step(f"Arriving at {g.name}", *lines)
+    else:
+        lines = [f"speed of {g.name} V₂ = √(μ/r₂) = {_kms(v2)},  transfer speed √(μ(2/r₂ − 1/a_t)) = {_kms(va)}",
+                 f"v∞ = |difference| = {_kms(t.v_inf_arrival)}"]
+        if t.capture_altitude is None:
+            lines.append("no capture burn requested")
+        else:
+            r_cap = g.radius + t.capture_altitude
+            lines += [f"capture periapsis r_p = {_km(r_cap)} ({_km(t.capture_altitude)} altitude), "
+                      f"capture orbit e = {t.capture_ecc:g}",
+                      f"Δv = √(v∞² + 2μ/r_p) − √(μ(1 + e)/r_p) = {_kms(t.dv_arrival)}  (μ of {g.name})"]
+            rp_opt = _ip.optimal_capture_periapsis(t.v_inf_arrival, g.mu, t.capture_ecc)
+            lines.append(f"Δv-optimal periapsis 2μ(1 − e)/(v∞²(1 + e)) = {_km(rp_opt)} "
+                         f"({_km(rp_opt - g.radius)} altitude)")
+        ex.step(f"Arriving at {g.name}", *lines)
+
+    if t.phase_angle is not None:
+        lines = [f"n₂ = √(μ/r₂³);  φ₀ = π − n₂·tof = {_deg(t.phase_angle)} "
+                 f"({g.name} {'ahead of' if t.phase_angle >= 0 else 'behind'} "
+                 f"{o.name if t.kind == 'siblings' else 'the spacecraft'})",
+                 f"synodic period T₁T₂/|T₁ − T₂| = {t.synodic_period / DAY:.2f} days (how often the geometry repeats)"]
+        if t.stay_time is not None:
+            lines.append(f"shortest stay at {g.name} before a Hohmann return: {t.stay_time / DAY:.1f} days")
+        ex.step("Phasing", *lines)
+    if t.departure_epoch is not None:
+        ex.step("Dates (Standish mean elements)",
+                f"departure {t.departure_epoch.iso[:16]} TDB "
+                f"({o.name} at ecliptic longitude {_deg(t.departure_longitude)})",
+                f"arrival {t.arrival_epoch.iso[:16]} TDB")
+    ex.step("Total", f"{_kms(t.dv_departure)} + {_kms(t.dv_arrival)} = {_kms(t.total_dv)}")
+    ex.assumptions.extend(t.assumptions)
+    return ex

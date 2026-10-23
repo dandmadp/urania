@@ -118,6 +118,35 @@ ur.ISS.transfer_to(ur.GEO, plane_split=0)                    # whole plane chang
 
 When the planes differ, burns happen at the line of nodes, and by default a Hohmann transfer splits the plane change optimally between its two burns.
 
+## Planets and moons
+
+Presets cover the Sun, the eight planets and 20 major moons (`ur.PLANETS`, `ur.MOONS`): Moon; Phobos, Deimos;
+Io, Europa, Ganymede, Callisto; Mimas, Enceladus, Tethys, Dione, Rhea, Titan, Iapetus; Miranda, Ariel, Umbriel,
+Titania, Oberon; Triton. Each knows its parent body, mean orbit radius and sphere of influence (`body.soi`).
+
+`Body.hohmann_to` computes a patched-conic Hohmann transfer between two bodies in one call: escape from a parking
+orbit, the Hohmann ellipse around the common parent, and capture at the target.
+
+```python
+import astropy.units as u
+import urania as ur
+
+t = ur.Earth.hohmann_to(ur.Mars, parking_altitude=300 * u.km, capture_altitude=300 * u.km,
+                        after=ur.Epoch.from_iso("2026-01-01T00:00:00"))
+print(t)              # BodyTransfer(Earth → Mars, Δv=5.6807 km/s, tof=258.9 d, depart 2026-12-04)
+print(t.v_inf_departure, t.c3, t.phase_angle, t.synodic_period, t.stay_time)
+print(t.explain())    # v∞, departure and capture Δv, phase angle, dates
+t.plot()
+
+ur.Earth.hohmann_to(ur.Moon, 300 * u.km, 100 * u.km)      # planet → its moon
+ur.Io.hohmann_to(ur.Europa, 100 * u.km, 100 * u.km)       # moons of the same planet
+ur.Earth.hohmann_to(ur.Jupiter, 300 * u.km)               # no capture: arrival v∞ only
+```
+
+With `after=`, the departure date is the first time the actual planet positions (JPL's Standish mean elements,
+1800 to 2050) reach the Hohmann phase angle. The pure formulas (v∞, departure and capture Δv, phase angle, synodic
+period, sphere of influence) are in `urania.core.interplanetary` and work with plain numbers.
+
 ## CubeSat operations
 
 Ground tracks, station passes, eclipses and lifetime work on any trajectory around Earth (from `Orbit.propagate`
@@ -177,6 +206,8 @@ TLE elements are SGP4-specific mean elements, so they are kept separate from `Or
 | Ground track | Skyfield, ISS TLE, 1 day | latitude and height identical, longitude within UT1 − UTC (0.0008°) |
 | Station passes | Skyfield `find_events`, 4 stations, 3 days, 39 passes | rise/peak/set within 0.23 s, peak elevation within 0.009° |
 | Lifetime (averaged method) | full j2+drag propagation, 250 to 350 km | within 2% |
+| Interplanetary Hohmann transfers | Curtis examples 8.1, 8.3, 8.4; Table 8.1 (spheres of influence) | printed precision |
+| Planet positions (Standish) | JPL DE421 via Skyfield, 1900 to 2050 | within 0.5' (inner planets), 1.3' (Mars), 12' (Saturn) |
 
 SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sanity check rather than precise validation. Precise validation comes from the GMAT comparison ([validation/gmat](https://github.com/dandmadp/urania/blob/main/validation/gmat), [tests/test_gmat.py](https://github.com/dandmadp/urania/blob/main/tests/test_gmat.py)).
 
@@ -186,7 +217,9 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
 
 - Perturbations: J2 and atmospheric drag. Lunar/solar perturbations, solar radiation pressure and higher-order gravity come later.
 - Atmosphere: Vallado's exponential model (mean solar activity), with height above the reference ellipsoid. Real density varies several-fold with solar activity.
-- Maneuvers: impulsive transfers between circular orbits. Rendezvous (phasing) and interplanetary transfers come later.
+- Maneuvers: impulsive transfers between circular orbits. Rendezvous (phasing) comes later. Body-to-body transfers
+  are patched-conic Hohmann transfers between circular coplanar orbits; Lambert solutions (porkchop plots) and
+  gravity assists come later. Moon positions are not modeled, so departure dates exist only between planets.
 - Time: TDB internally. UTC goes through astropy: `Epoch.from_utc()`, `epoch.utc`, `Epoch.now()`.
 - Frames: the inertial frame's z axis is Earth's spin axis (true equator of date, like TEME); precession and nutation
   are not modeled, so give state vectors in that frame. Earth-fixed coordinates use GMST with UT1 ≈ UTC and no polar
@@ -197,6 +230,7 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
 
 - [examples/quickstart.py](https://github.com/dandmadp/urania/blob/main/examples/quickstart.py): ISS → GEO transfer
 - [examples/cubesat_decay.py](https://github.com/dandmadp/urania/blob/main/examples/cubesat_decay.py): 3U CubeSat decay and sensitivity to atmospheric density
+- [examples/interplanetary.py](https://github.com/dandmadp/urania/blob/main/examples/interplanetary.py): Hohmann transfers from Earth to every planet with departure dates
 - [examples/tle_vs_propagator.py](https://github.com/dandmadp/urania/blob/main/examples/tle_vs_propagator.py): comparison with SGP4 using a real ISS TLE
 
 ## License

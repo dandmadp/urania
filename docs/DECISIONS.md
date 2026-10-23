@@ -218,3 +218,25 @@
 ## D34. Usability: concise reprs and Quantities (v0.1)
 - `Trajectory` and `Burn` print one line instead of arrays. `orbit.qty.<name>` returns astropy Quantities in km, deg,
   min, deg/day; `orbit.summary()` lists them. Internal values stay SI (D6); this is an output convenience only.
+
+## D35. Planets and moons: JPL constants, parent and orbit radius on Body (v0.1)
+- μ: DE440 for Mercury, Venus, Mars; the JPL satellite ephemerides for the giant planets (JUP365, SAT441, URA111,
+  NEP097, planet without moons) and for every moon. Radii and rotation: JPL SSD; J2 and flattening: NASA fact sheets
+  (their J2 reference radius is not stated; taken as the equatorial radius). A negative rotation rate is retrograde.
+- `Body` gains `parent`, `semi_major_axis` (mean, from Standish for planets and JPL mean elements for moons) and
+  `ephemeris`. They do not take part in equality, so a body created with the same physical constants still equals
+  the preset, as before.
+- Moons do not get J2 or flattening (mostly unmeasured or irrelevant for the transfer estimates they serve).
+
+## D36. Body-to-body transfers: patched-conic Hohmann, Standish positions for dates (v0.1)
+- `Body.hohmann_to` covers siblings (same parent), planet → its moon and moon → its parent. Other pairs (Earth →
+  Titan) raise an error that suggests chaining: a single Hohmann ellipse cannot connect bodies with different parents.
+- Circular coplanar orbits at the mean semi-major axes (Curtis ch. 8). This is the standard first estimate; real
+  missions solve Lambert's problem (porkchop plots), which is left for later.
+- Departure dates: the first time after the given epoch at which the target's heliocentric ecliptic longitude leads
+  the origin's by the Hohmann phase angle, using Standish's mean elements (JPL, 1800 to 2050, arcminute accuracy).
+  This avoids a DE ephemeris download. Checked once against DE421 (Skyfield), 1900 to 2050: longitude errors
+  below 0.5' for the inner planets, 1.3' for Mars, 7' for Jupiter and 12' for Saturn, as Standish states. The search scans 1.2 synodic periods and refines with Brent's method; dates
+  outside 1800 to 2050 warn. Moon positions are not modeled, so moon transfers give phasing but no date.
+- A body whose sphere of influence is smaller than its radius (Phobos, Deimos) cannot be orbited in this model;
+  transfers to it without capture still work.

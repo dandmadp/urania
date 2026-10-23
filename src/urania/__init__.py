@@ -1,9 +1,14 @@
 """urania — an astrodynamics library that computes, shows and explains."""
 
-from .bodies import Body, Earth, Mars, Moon, Sun
+from .bodies import (
+    MOONS, PLANETS, Ariel, Body, Callisto, Deimos, Dione, Earth, Enceladus, Europa, Ganymede, Iapetus, Io,
+    Jupiter, Mars, Mercury, Mimas, Miranda, Moon, Neptune, Oberon, Phobos, Rhea, Saturn, Sun, Tethys, Titan,
+    Titania, Triton, Umbriel, Uranus, Venus,
+)
 from .eclipse import Eclipse, EclipseReport
 from .environment import Environment
 from .ground import GroundStation, GroundTrack, Pass, PassReport
+from .interplanetary import BodyTransfer
 from .lifetime import Lifetime
 from .maneuvers import Burn, Transfer
 from .orbits import GEO, ISS, LEO, SSO, Orbit, sun_synchronous
@@ -14,10 +19,13 @@ from .tle import TLEOrbit
 __version__ = "0.0.2"
 
 __all__ = [
-    "Body", "Earth", "Mars", "Moon", "Sun",
+    "Body", "Sun", "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune",
+    "Moon", "Phobos", "Deimos", "Io", "Europa", "Ganymede", "Callisto",
+    "Mimas", "Enceladus", "Tethys", "Dione", "Rhea", "Titan", "Iapetus",
+    "Miranda", "Ariel", "Umbriel", "Titania", "Oberon", "Triton", "PLANETS", "MOONS",
     "Orbit", "sun_synchronous", "LEO", "ISS", "SSO", "GEO",
     "Epoch", "J2000",
-    "Environment", "Trajectory", "PropagationInfo", "Transfer", "Burn",
+    "Environment", "Trajectory", "PropagationInfo", "Transfer", "Burn", "BodyTransfer",
     "TLEOrbit",
     "GroundStation", "GroundTrack", "Pass", "PassReport", "Eclipse", "EclipseReport", "Lifetime",
 ]

@@ -131,3 +131,6 @@ Motivated by a review of what CubeSat teams need first. Each feature gets `expla
 - Eclipses (penumbra and umbra) with an analytic Sun position.
 - Lifetime estimate under drag (fast orbit-averaged method plus full propagation).
 - Validation: Vallado examples, Skyfield for ground tracks and passes, full propagation for lifetime.
+- Bodies: all eight planets and their major moons, with parent body and orbit radius.
+- Body-to-body Hohmann transfers with patched conics (Curtis ch. 8): v∞, departure and capture Δv, phase angle,
+  synodic period, departure date from approximate planet positions. Validation: Curtis examples.

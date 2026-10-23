@@ -58,4 +58,5 @@ v0.1 (SPEC.md section 8):
 - [x] Usability: concise reprs, `orbit.qty`, `orbit.summary()`
 - [x] Frames: `core.frames` (GMST, ECEF, geodetic, look angles) — DECISIONS D31
 - [x] Ground track, passes (`ground.py`), eclipses (`eclipse.py`), lifetime (`lifetime.py`) — D32, D33
+- [x] Planets and moons, patched-conic `Body.hohmann_to` (`interplanetary.py`, `core/interplanetary.py`, `core/planets.py`) — D35, D36
 - Validation references: Skyfield (dev dependency) for ground tracks and passes; full propagation for lifetime

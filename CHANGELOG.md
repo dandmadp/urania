@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Added
+- Mercury, Venus, Jupiter, Saturn, Uranus and Neptune, and 20 major moons (Phobos to Triton), with JPL constants.
+  Bodies record their parent, mean orbit radius and sphere of influence (`Body.soi`, `Body.orbital_period`).
+- `Body.hohmann_to`: patched-conic Hohmann transfer between planets, between moons of one planet, or between a
+  planet and its moon (`BodyTransfer` with v∞, C3, departure and capture Δv, phase angle, synodic period, stay time,
+  `explain()` and `plot()`); `after=` finds the next departure date from JPL's approximate planet positions.
+- `core.interplanetary` (patched-conic formulas) and `core.planets` (Standish mean-element ephemeris).
 - Ground tracks (`Trajectory.ground_track`), station passes (`Trajectory.passes` with `GroundStation`),
   eclipses (`Trajectory.eclipses`) and lifetime estimates (`Orbit.lifetime`), each with `explain()` and `plot()`.
 - `Trajectory.state_at(t)`: position and velocity at any time between samples.

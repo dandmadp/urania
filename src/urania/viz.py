@@ -244,3 +244,54 @@ def plot_lifetime(life, ax=None):
     ax.grid(alpha=0.3)
     ax.legend(loc="upper right", fontsize="small")
     return ax
+
+
+def plot_body_transfer(t, ax=None):
+    """The Hohmann ellipse around the central body, both circular orbits, and the bodies at departure.
+
+    With a departure date the x axis is the ecliptic vernal equinox; otherwise the origin departs along +x.
+    """
+    import matplotlib.patches as mpatches
+
+    ax = _axes(ax)
+    c = t.central
+    scale, unit = (1.495978707e11, "AU") if c.parent is None else (KM, "km")
+    theta0 = t.departure_longitude or 0.0
+    ang = np.linspace(0.0, 2.0 * math.pi, 361)
+    ax.add_patch(mpatches.Circle((0, 0), c.radius / scale, color="#e0a030" if c.parent is None else "#4a7ab8",
+                                 alpha=0.6, zorder=3, label=c.name))
+    if t.kind == "siblings":
+        circles = ((t.r1, t.origin.name, "C0"), (t.r2, t.target.name, "C2"))
+    elif t.kind == "to_moon":
+        circles = ((t.r1, "parking orbit", "C0"), (t.r2, t.target.name, "C2"))
+    else:
+        circles = ((t.r1, t.origin.name, "C0"), (t.r2, "capture orbit", "C2"))
+    for r, label, color in circles:
+        ax.plot(r * np.cos(ang) / scale, r * np.sin(ang) / scale, color=color, lw=1, label=label)
+
+    # Half ellipse from r1 at angle theta0 to r2 at theta0 + π (focus at the center)
+    a, e = t.a_transfer, abs(t.r2 - t.r1) / (t.r1 + t.r2)
+    nu = np.linspace(0.0, math.pi, 181)
+    if t.r2 >= t.r1:
+        r = a * (1 - e * e) / (1 + e * np.cos(nu))
+    else:
+        r = a * (1 - e * e) / (1 - e * np.cos(nu))
+    ax.plot(r * np.cos(nu + theta0) / scale, r * np.sin(nu + theta0) / scale, color="C1", lw=2, label="transfer")
+
+    ax.plot(t.r1 * math.cos(theta0) / scale, t.r1 * math.sin(theta0) / scale, "o", color="C0")
+    ax.plot(-t.r2 * math.cos(theta0) / scale, -t.r2 * math.sin(theta0) / scale, "*", color="C3", ms=12,
+            label="arrival")
+    if t.phase_angle is not None:
+        th = theta0 + t.phase_angle
+        ax.plot(t.r2 * math.cos(th) / scale, t.r2 * math.sin(th) / scale, "o", color="C2",
+                label=f"{t.target.name} at departure")
+    ax.set_aspect("equal")
+    ax.set_xlabel(f"x [{unit}]")
+    ax.set_ylabel(f"y [{unit}]")
+    title = f"{t.origin.name} → {t.target.name}: Δv = {t.total_dv / KM:.3f} km/s, tof = {t.tof / 86400:.1f} d"
+    if t.departure_epoch is not None:
+        title += f"\ndepart {t.departure_epoch.iso[:10]}, arrive {t.arrival_epoch.iso[:10]}"
+    ax.set_title(title)
+    ax.grid(alpha=0.3)
+    ax.legend(loc="upper right", fontsize="small")
+    return ax
