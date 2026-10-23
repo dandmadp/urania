@@ -240,3 +240,34 @@
   outside 1800 to 2050 warn. Moon positions are not modeled, so moon transfers give phasing but no date.
 - A body whose sphere of influence is smaller than its radius (Phobos, Deimos) cannot be orbited in this model;
   transfers to it without capture still work.
+
+## D37. Lambert solver: universal variables with bracketing (v0.1)
+- Curtis algorithm 5.2 / Vallado algorithm 58 in the universal variable z, solved with Brent's method on a bracket
+  instead of Newton's method: the time of flight is monotonic in z for direct transfers, so the root is always
+  found. The region where y(z) < 0 (no real orbit) counts as time 0, which keeps the bracket continuous.
+- Multi-revolution arcs use the same formula on z in ((2πN)², (2π(N+1))²); the time of flight has one minimum
+  there, found by bounded minimization, and the "left"/"right" branches lie on either side.
+- Izzo's algorithm is faster, but universal variables match the textbooks the library cites and solve in about
+  0.15 ms, enough for porkchop grids of thousands of points. Transfers of exactly 0° or 180° raise an error (the
+  plane is undefined).
+
+## D38. Gravity assists: Lambert legs with powered flybys (v0.1)
+- A mission is a list of planets and dates. Each leg is a Lambert arc between planet centers (Standish states);
+  each flyby joins the incoming and outgoing v∞. If their magnitudes differ, a periapsis burn makes up the
+  difference and the periapsis follows from asin(1/e_in) + asin(1/e_out) = δ (the MGA model of Izzo 2010). This
+  turns any set of dates into a computable mission instead of requiring an unpowered match.
+- Flybys below `min_flyby_altitude` (the surface by default) are flagged infeasible rather than rejected, so
+  porkchop-style searches and explain() can show why a date fails.
+- Validated with Mariner 10: the Venus flyby comes out nearly unpowered (19 m/s) at 5,739 km altitude against the
+  5,768 km flown. Deep-space maneuvers and automatic date optimization are left out.
+
+## D39. Satellite operations: chosen for CubeSat teams (v0.1)
+- Rendezvous (Lambert, any orbits), phasing (Curtis 6.6) and deorbit reuse the `Transfer` object, so explain(),
+  plot() and the new `propellant()` work unchanged.
+- Relative motion uses the chief's LVLH frame (Curtis ch. 7: x radial, y along-track, z normal) with the exact
+  rotating-frame transformation; `core.relative` adds the Clohessy-Wiltshire solution and two-impulse rendezvous.
+  Deployment and formation questions are the most common relative-motion use for small satellites.
+- Doppler uses the first-order shift -f ṙ/c; the neglected second-order terms are about 1e-10 of the carrier,
+  far below receiver tuning steps.
+- Footprint and beta angle assume a spherical Earth; the eclipse fraction from β uses a cylindrical shadow and
+  is within 1% of the orbit of the conical eclipse search. `Trajectory.eclipses()` remains the precise tool.

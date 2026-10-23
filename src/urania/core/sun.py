@@ -72,3 +72,26 @@ def umbra_function(r_sat, r_sun, R_body: float, R_sun: float = SUN_RADIUS) -> fl
     """c - (b - a): negative inside the umbra, zero at umbra entry/exit."""
     a, b, c = disk_angles(r_sat, r_sun, R_body, R_sun)
     return c - (b - a)
+
+
+def beta_angle(r, v, r_sun) -> np.ndarray:
+    """Angle between the orbit plane and the Sun direction [rad], positive on the orbit-normal side.
+
+    β = asin(ĥ · ŝ). Works on single states or N×3 arrays.
+    """
+    h = np.cross(r, v)
+    h = h / np.linalg.norm(h, axis=-1, keepdims=True)
+    s = np.asarray(r_sun, dtype=float)
+    s = s / np.linalg.norm(s, axis=-1, keepdims=True)
+    return np.arcsin(np.clip(np.sum(h * s, axis=-1), -1.0, 1.0))
+
+
+def eclipse_fraction(beta: float, radius: float, body_radius: float) -> float:
+    """Fraction of a circular orbit inside a cylindrical shadow, from the beta angle.
+
+    f = acos(√(r² - R²) / (r cos β)) / π when |β| < asin(R/r), else 0 (S. Rickman, "Introduction to On-Orbit
+    Thermal Environments", NASA TFAWS, eclipse fraction).
+    """
+    if abs(beta) >= math.asin(body_radius / radius):
+        return 0.0
+    return math.acos(math.sqrt(radius**2 - body_radius**2) / (radius * math.cos(beta))) / math.pi

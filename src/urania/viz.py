@@ -11,8 +11,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from . import units
 from .core import elements as _el
 from .core import propagate as _prop
+from .time import Epoch
 
 if TYPE_CHECKING:
     from .maneuvers import Transfer
@@ -294,4 +296,101 @@ def plot_body_transfer(t, ax=None):
     ax.set_title(title)
     ax.grid(alpha=0.3)
     ax.legend(loc="upper right", fontsize="small")
+    return ax
+
+
+AU = 1.495978707e11
+
+
+def plot_mission(m, ax=None):
+    """Heliocentric view (J2000 ecliptic, AU): planet orbits, Lambert legs and the planets at each event."""
+    from .core import planets as _pl
+
+    ax = _axes(ax)
+    ax.plot(0, 0, "o", color="#e0a030", ms=10, label="Sun")
+    seen = set()
+    for body in m.sequence:
+        if body.name in seen:
+            continue
+        seen.add(body.name)
+        jds = m.departure.jd + np.linspace(0.0, body.orbital_period / 86400.0, 241)
+        pts = np.array([_pl.heliocentric_state(body.ephemeris, jd, body.parent.mu)[0] for jd in jds])
+        ax.plot(pts[:, 0] / AU, pts[:, 1] / AU, color="0.6", lw=0.7)
+    for k, leg in enumerate(m.legs):
+        r, _ = _prop.kepler_states(leg.r1, leg.v1, np.linspace(0.0, leg.tof, 361), leg.origin.parent.mu)
+        ax.plot(r[:, 0] / AU, r[:, 1] / AU, color=f"C{k}", lw=2, label=f"{leg.origin.name} → {leg.target.name}")
+    events = [(m.legs[0].origin, m.legs[0].r1, m.legs[0].departure)]
+    events += [(leg.target, leg.r2, leg.arrival) for leg in m.legs]
+    for body, r, epoch in events:
+        ax.plot(r[0] / AU, r[1] / AU, "o", color="k", ms=5)
+        ax.annotate(f"{body.name}\n{epoch.iso[:10]}", (r[0] / AU, r[1] / AU), textcoords="offset points",
+                    xytext=(6, 6), fontsize="small")
+    ax.set_aspect("equal")
+    ax.set_xlabel("x [AU] (ecliptic J2000)")
+    ax.set_ylabel("y [AU]")
+    path = " → ".join(b.name for b in m.sequence)
+    ax.set_title(f"{path}\nΔv = {m.total_dv / KM:.3f} km/s, C3 = {m.c3 / 1e6:.2f} km²/s², "
+                 f"tof = {m.tof / 86400:.0f} d")
+    ax.grid(alpha=0.3)
+    ax.legend(loc="upper right", fontsize="small")
+    return ax
+
+
+def plot_porkchop(p, ax=None, max_c3=None):
+    """C3 contours over departure and arrival dates, with time-of-flight lines and the minimum marked."""
+    import matplotlib.pyplot as plt
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(8, 6))
+    x = p.departure_jd - p.departure_jd[0]
+    y = p.arrival_jd - p.departure_jd[0]
+    c3 = p.c3 / 1e6
+    if not np.all(np.isnan(c3)):
+        low = np.nanmin(c3)
+        top = 4 * low if max_c3 is None else units.to_si(max_c3, units.u.km**2 / units.u.s**2) / 1e6
+        cs = ax.contour(x, y, np.where(c3 <= top, c3, np.nan), levels=np.linspace(low, top, 15),
+                        cmap="viridis")
+        ax.clabel(cs, fmt="%.1f", fontsize="x-small")
+        ts = ax.contour(x, y, p.tof / 86400.0, levels=8, colors="0.5", linestyles="--", linewidths=0.6)
+        ax.clabel(ts, fmt="%.0f d", fontsize="x-small")
+        i, j = np.unravel_index(np.nanargmin(c3), c3.shape)
+        ax.plot(x[j], y[i], "*", color="C3", ms=12, label=f"min C3 {c3[i, j]:.2f} km²/s²")
+        ax.legend(loc="upper left", fontsize="small")
+    start = Epoch.from_jd(p.departure_jd[0]).iso[:10]
+    ax.set_xlabel(f"departure [days after {start}]")
+    ax.set_ylabel(f"arrival [days after {start}]")
+    ax.set_title(f"{p.origin.name} → {p.target.name}: C3 [km²/s²]")
+    ax.grid(alpha=0.3)
+    return ax
+
+
+def plot_relative(rel, ax=None):
+    """LVLH relative motion: along-track (horizontal) against radial (vertical), the chief at the origin."""
+    ax = _axes(ax)
+    ax.plot(rel.r[:, 1], rel.r[:, 0], color="C0", label="deputy")
+    ax.plot(rel.r[0, 1], rel.r[0, 0], "o", color="C2", label="start")
+    ax.plot(rel.r[-1, 1], rel.r[-1, 0], "s", color="C3", label="end")
+    ax.plot(0, 0, "+", color="k", ms=12, label=rel.chief)
+    ax.set_xlabel("along-track y [m]")
+    ax.set_ylabel("radial x [m]")
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.set_title(f"Relative motion (LVLH of {rel.chief})")
+    ax.grid(alpha=0.3)
+    ax.legend(loc="upper right", fontsize="small")
+    return ax
+
+
+def plot_doppler(d, ax=None, min_elevation=0.0):
+    """Doppler shift [kHz] against time [min], only while the satellite is above min_elevation."""
+    import matplotlib.pyplot as plt
+
+    if ax is None:
+        _, ax = plt.subplots(figsize=(8, 4))
+    shift = np.where(d.elevation >= min_elevation, d.shift / 1e3, np.nan)
+    ax.plot(d.t / 60.0, shift, color="C0")
+    ax.axhline(0, color="0.5", lw=0.6)
+    ax.set_xlabel("time [min]")
+    ax.set_ylabel("Doppler shift [kHz]")
+    ax.set_title(f"Doppler at {d.station.name}, {d.frequency / 1e6:.3f} MHz")
+    ax.grid(alpha=0.3)
     return ax

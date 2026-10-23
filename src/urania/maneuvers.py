@@ -89,6 +89,12 @@ class Transfer:
         """Orbit after the transfer."""
         return self.orbits[-1] if self.orbits else self.initial
 
+    def propellant(self, mass, isp) -> float:
+        """Propellant mass [kg] for total_dv from the rocket equation, given the wet mass and Isp [s]."""
+        from .core.propulsion import propellant_mass
+
+        return propellant_mass(self.total_dv, units.to_si(isp, units.TIME), units.to_si(mass, units.MASS))
+
     def explain(self):
         """Show the transfer formulas, intermediate speeds, Δv per burn and transfer time step by step."""
         from .explain import explain_transfer
@@ -232,3 +238,138 @@ def transfer(initial: Orbit, target: Orbit, method: str = "hohmann", *, rb=None,
 
     return Transfer(kind, initial, target, tuple(burns), tuple(orbits), dtheta,
                     tuple(assumptions))
+
+
+def _arc_hits_surface(r, v, tof: float, mu: float, radius: float) -> bool:
+    rs, _ = _prop.kepler_states(r, v, np.linspace(0.0, tof, 361), mu)
+    return bool(np.linalg.norm(rs, axis=1).min() < radius)
+
+
+def rendezvous(initial: Orbit, target: Orbit, tof, *, wait=0.0, revolutions: int = 0,
+               branch: str = "left") -> Transfer:
+    """Two-burn rendezvous on a Lambert arc. Implementation of `Orbit.rendezvous`.
+
+    After coasting `wait`, the first burn puts the spacecraft on the arc that reaches the target's position
+    (two-body propagated) after `tof`; the second burn matches the target's velocity. Works for any orbits,
+    including plane changes and eccentric orbits (Curtis section 5.3, Vallado section 7.6).
+    """
+    import warnings
+
+    from .core import lambert as _lam
+    from .orbits import Orbit
+
+    body = initial.body
+    if target.body != body:
+        raise ValueError(f"Central bodies differ: {body.name} → {target.body.name}")
+    tof = units.to_si(tof, units.TIME)
+    wait = units.to_si(wait, units.TIME)
+    if not tof > 0 or not wait >= 0:
+        raise ValueError(f"Need tof > 0 and wait ≥ 0: {tof}, {wait}")
+    mu = body.mu
+    t1 = initial.epoch + wait
+    r1, v_before = _prop.kepler_propagate(initial.r, initial.v, wait, mu)
+    t2 = t1 + tof
+    r2, v_target = _prop.kepler_propagate(target.r, target.v, t2 - target.epoch, mu)
+    normal = np.cross(initial.r, initial.v)
+    v1, v2 = _lam.lambert(r1, r2, tof, mu, prograde=True, revolutions=revolutions, branch=branch,
+                          normal=normal)
+    if _arc_hits_surface(r1, v1, tof, mu, body.radius):
+        warnings.warn(f"The rendezvous arc passes below the surface of {body.name}; choose another tof",
+                      stacklevel=3)
+    h1, h2 = _unit(normal), _unit(np.cross(target.r, target.v))
+    burns = (Burn(t1, r1, v1 - v_before, "burn 1: enter Lambert arc"),
+             Burn(t2, r2, v_target - v2, "burn 2: match target velocity"))
+    orbits = (Orbit(body, r1, v1, t1), Orbit(body, r2, v_target, t2))
+    assumptions = (
+        "impulsive burns (Δv applied instantaneously)",
+        "two-body motion of both spacecraft (perturbations ignored)",
+        f"Lambert arc with {revolutions} complete revolution(s)"
+        + (f", {branch} branch" if revolutions else "") + ", prograde with respect to the initial orbit",
+    )
+    return Transfer("lambert", initial, target, burns, orbits,
+                    float(math.atan2(np.linalg.norm(np.cross(h1, h2)), h1 @ h2)), assumptions)
+
+
+def phasing(initial: Orbit, angle=None, *, target: Orbit | None = None, revolutions: int = 1) -> Transfer:
+    """Phasing maneuver in a circular orbit: move `angle` ahead along the orbit (negative: fall behind).
+
+    One burn enters a phasing orbit whose period is (2πk - Δθ)/(n k); after k revolutions a second burn
+    restores the circular orbit (Curtis section 6.6). With `target`, the angle is the target's lead at the
+    initial epoch, wrapped to ±180°.
+    """
+    from .core.kepler import _wrap_pi
+    from .orbits import Orbit
+
+    body = initial.body
+    if initial.ecc > CIRCULAR_ECC_TOL:
+        raise ValueError(f"Phasing needs a circular orbit (e={initial.ecc:.4g})")
+    k = int(revolutions)
+    if k < 1 or k != revolutions:
+        raise ValueError(f"revolutions must be a positive integer: {revolutions}")
+    h = np.cross(initial.r, initial.v)
+    if target is not None:
+        if angle is not None:
+            raise ValueError("Give angle or target, not both")
+        if target.body != body:
+            raise ValueError(f"Central bodies differ: {body.name} → {target.body.name}")
+        rt, vt = _prop.kepler_propagate(target.r, target.v, initial.epoch - target.epoch, body.mu)
+        ht = _unit(np.cross(rt, vt))
+        tilt = math.atan2(np.linalg.norm(np.cross(_unit(h), ht)), _unit(h) @ ht)
+        if abs(np.linalg.norm(rt) - np.linalg.norm(initial.r)) > 1e-3 * np.linalg.norm(initial.r) or tilt > 1e-3:
+            raise ValueError("Phasing needs the target in the same circular orbit; use rendezvous() otherwise")
+        dtheta = _wrap_pi(_angle_between(initial.r, rt, _unit(h)))
+    elif angle is None:
+        raise ValueError("Give the phase angle or a target orbit")
+    else:
+        dtheta = units.to_si(angle, units.ANGLE)
+    mu = body.mu
+    r = float(np.linalg.norm(initial.r))
+    n = math.sqrt(mu / r**3)
+    T_ph = (2.0 * math.pi * k - dtheta) / (n * k)
+    if not T_ph > 0:
+        raise ValueError(f"Phase change {math.degrees(dtheta):.1f}° is too large for {k} revolution(s)")
+    a_ph = (mu * (T_ph / (2.0 * math.pi)) ** 2) ** (1.0 / 3.0)
+    r_other = 2.0 * a_ph - r
+    if r_other < body.radius:
+        raise ValueError(f"The phasing orbit would dip {(body.radius - r_other) / 1e3:.0f} km below the "
+                         f"surface; use more revolutions")
+    direction = _unit(np.cross(h, initial.r))
+    v_ph = math.sqrt(mu * (2.0 / r - 1.0 / a_ph)) * direction
+    t1 = initial.epoch
+    burn1 = Burn(t1, initial.r, v_ph - initial.v, f"burn 1: enter phasing orbit ({k} rev)")
+    t2 = t1 + k * T_ph
+    r2, v2 = _prop.kepler_propagate(initial.r, v_ph, k * T_ph, mu)
+    v_c = math.sqrt(mu / np.linalg.norm(r2)) * _unit(np.cross(h, r2))
+    burn2 = Burn(t2, r2, v_c - v2, "burn 2: return to the circular orbit")
+    final = Orbit(body, r2, v_c, t2)
+    assumptions = ("impulsive tangential burns", "two-body motion (perturbations ignored)",
+                   f"phase change {math.degrees(dtheta):+.4f}° over {k} phasing revolution(s)")
+    return Transfer("phasing", initial, final, (burn1, burn2), (Orbit(body, initial.r, v_ph, t1), final),
+                    0.0, assumptions)
+
+
+def deorbit(initial: Orbit, perigee_altitude) -> Transfer:
+    """One retrograde burn at apoapsis (now, for a circular orbit) that lowers periapsis to perigee_altitude."""
+    from .orbits import Orbit
+
+    body = initial.body
+    mu = body.mu
+    h_p = units.to_si(perigee_altitude, units.LENGTH)
+    if initial.ecc > CIRCULAR_ECC_TOL:
+        coast = ((math.pi - initial.M) % (2.0 * math.pi)) / initial.mean_motion
+    else:
+        coast = 0.0
+    r, v = _prop.kepler_propagate(initial.r, initial.v, coast, mu)
+    r_a = float(np.linalg.norm(r))
+    r_p = body.radius + h_p
+    if not r_p < r_a:
+        raise ValueError(f"Target perigee altitude {h_p / 1e3:.0f} km is not below the burn altitude "
+                         f"{(r_a - body.radius) / 1e3:.0f} km")
+    h = np.cross(r, v)
+    v_new = math.sqrt(mu * (2.0 / r_a - 2.0 / (r_a + r_p))) * _unit(np.cross(h, r))
+    epoch = initial.epoch + coast
+    after = Orbit(body, r, v_new, epoch)
+    assumptions = ("impulsive tangential burn at apoapsis", "two-body motion until perigee (drag ignored)",
+                   f"new perigee altitude {h_p / 1e3:.1f} km")
+    return Transfer("deorbit", initial, after, (Burn(epoch, r, v_new - v, "deorbit burn"),), (after,), 0.0,
+                    assumptions)

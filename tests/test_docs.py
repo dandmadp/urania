@@ -30,7 +30,7 @@ def test_readme_quickstart_numbers():
 
 
 @pytest.mark.parametrize("script", ["quickstart.py", "tle_vs_propagator.py", "cubesat_operations.py",
-                                    "interplanetary.py"])
+                                    "interplanetary.py", "missions_and_operations.py"])
 def test_example_runs(script, tmp_path, monkeypatch):
     # Move __file__ so the figure is saved in a temporary folder
     src = (ROOT / "examples" / script).read_text(encoding="utf-8")

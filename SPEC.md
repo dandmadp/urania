@@ -134,3 +134,6 @@ Motivated by a review of what CubeSat teams need first. Each feature gets `expla
 - Bodies: all eight planets and their major moons, with parent body and orbit radius.
 - Body-to-body Hohmann transfers with patched conics (Curtis ch. 8): v∞, departure and capture Δv, phase angle,
   synodic period, departure date from approximate planet positions. Validation: Curtis examples.
+- Lambert's problem; dated planet-to-planet transfers, porkchop plots, gravity-assist sequences (powered flybys).
+- Satellite operations: Lambert rendezvous, phasing, deorbit, relative motion (CW), Doppler, coverage footprint,
+  beta angle, propellant mass.

@@ -76,6 +76,12 @@ class BodyTransfer:
         """Arrival time (departure_epoch + tof)."""
         return None if self.departure_epoch is None else self.departure_epoch + self.tof
 
+    def propellant(self, mass, isp) -> float:
+        """Propellant mass [kg] for total_dv from the rocket equation, given the wet mass and Isp [s]."""
+        from .core.propulsion import propellant_mass
+
+        return propellant_mass(self.total_dv, units.to_si(isp, units.TIME), units.to_si(mass, units.MASS))
+
     def explain(self):
         """Show the patched-conic formulas, v∞, Δv of each burn, phase angle and timing step by step."""
         from .explain import explain_body_transfer

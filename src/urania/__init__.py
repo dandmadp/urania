@@ -10,6 +10,8 @@ from .environment import Environment
 from .ground import GroundStation, GroundTrack, Pass, PassReport
 from .interplanetary import BodyTransfer
 from .lifetime import Lifetime
+from .missions import Flyby, Leg, Mission, Porkchop, flyby_mission, porkchop
+from .satellite import Doppler, Footprint, RelativeMotion
 from .maneuvers import Burn, Transfer
 from .orbits import GEO, ISS, LEO, SSO, Orbit, sun_synchronous
 from .propagation import PropagationInfo, Trajectory
@@ -26,6 +28,8 @@ __all__ = [
     "Orbit", "sun_synchronous", "LEO", "ISS", "SSO", "GEO",
     "Epoch", "J2000",
     "Environment", "Trajectory", "PropagationInfo", "Transfer", "Burn", "BodyTransfer",
+    "Mission", "Leg", "Flyby", "Porkchop", "flyby_mission", "porkchop",
+    "RelativeMotion", "Doppler", "Footprint",
     "TLEOrbit",
     "GroundStation", "GroundTrack", "Pass", "PassReport", "Eclipse", "EclipseReport", "Lifetime",
 ]

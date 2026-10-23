@@ -177,6 +177,25 @@ class Trajectory:
 
         return eclipses(self)
 
+    def relative_to(self, chief):
+        """Motion relative to a chief Orbit or Trajectory in its LVLH frame, at every sample."""
+        from .satellite import relative_motion
+
+        return relative_motion(self, chief)
+
+    def doppler(self, station, frequency):
+        """Range, range rate and Doppler shift of a carrier (Hz or Quantity) at a GroundStation."""
+        from .satellite import doppler
+
+        return doppler(self, station, frequency)
+
+    @property
+    def beta_angle(self) -> np.ndarray:
+        """Beta angle at every sample [rad] (Earth orbits)."""
+        from .satellite import trajectory_beta_angle
+
+        return trajectory_beta_angle(self)
+
     def __repr__(self) -> str:
         cut = f", stopped: {self.info.terminated}" if self.info.terminated else ""
         return (f"Trajectory({self.body.name}, {self.info.model}, {len(self)} points, "

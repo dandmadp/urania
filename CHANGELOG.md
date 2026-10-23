@@ -9,6 +9,14 @@
   planet and its moon (`BodyTransfer` with v∞, C3, departure and capture Δv, phase angle, synodic period, stay time,
   `explain()` and `plot()`); `after=` finds the next departure date from JPL's approximate planet positions.
 - `core.interplanetary` (patched-conic formulas) and `core.planets` (Standish mean-element ephemeris).
+- Lambert's problem (`core.lambert`, universal variables, multi-revolution): `Body.lambert_to` (dated transfers
+  between planets), `porkchop` (C3 and arrival v∞ grids with `plot()` and `best()`), and `Orbit.rendezvous`.
+- Gravity assists: `flyby_mission` (Lambert legs joined by powered or unpowered flybys, `Mission`, `Leg`,
+  `Flyby`) and `Body.flyby`; `core.flyby`.
+- Satellite operations: `Orbit.phasing`, `Orbit.deorbit`, `Orbit.relative_to` / `Trajectory.relative_to`
+  (LVLH, `RelativeMotion`), `Trajectory.doppler` (`Doppler`), `Orbit.footprint` (`Footprint`),
+  `Orbit.beta_angle` / `Trajectory.beta_angle`, `Orbit.eclipse_fraction`, and `propellant()` on every transfer
+  (rocket equation). Core modules `core.relative` (Clohessy-Wiltshire), `core.coverage`, `core.propulsion`.
 - Ground tracks (`Trajectory.ground_track`), station passes (`Trajectory.passes` with `GroundStation`),
   eclipses (`Trajectory.eclipses`) and lifetime estimates (`Orbit.lifetime`), each with `explain()` and `plot()`.
 - `Trajectory.state_at(t)`: position and velocity at any time between samples.

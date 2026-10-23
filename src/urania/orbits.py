@@ -335,6 +335,58 @@ class Orbit:
 
         return transfer(self, target, method, rb=rb, plane_split=plane_split)
 
+    def rendezvous(self, target: Orbit, tof, *, wait=0.0, revolutions: int = 0, branch: str = "left"):
+        """Two-burn Lambert rendezvous with the spacecraft on `target` after `tof` (any orbits); a Transfer.
+
+        wait: coast before the first burn. revolutions/branch select multi-revolution Lambert arcs.
+        Example: ``chaser.rendezvous(target, 45 * u.min)``
+        """
+        from .maneuvers import rendezvous
+
+        return rendezvous(self, target, tof, wait=wait, revolutions=revolutions, branch=branch)
+
+    def phasing(self, angle=None, *, target: Orbit | None = None, revolutions: int = 1):
+        """Move `angle` ahead in the same circular orbit (negative: behind) with a phasing orbit; a Transfer.
+
+        With target=, catch up with a spacecraft in the same orbit.
+        """
+        from .maneuvers import phasing
+
+        return phasing(self, angle, target=target, revolutions=revolutions)
+
+    def deorbit(self, perigee_altitude=50e3):
+        """One retrograde burn that lowers periapsis to perigee_altitude (default 50 km); a Transfer."""
+        from .maneuvers import deorbit
+
+        return deorbit(self, perigee_altitude)
+
+    # ---------------------------------------------------------- operations
+
+    def relative_to(self, chief):
+        """Position and velocity relative to a chief Orbit or Trajectory, in the chief's LVLH frame
+        (x radial, y along-track, z orbit normal) [m, m/s]."""
+        from .satellite import relative_state
+
+        return relative_state(self, chief)
+
+    def footprint(self, min_elevation=0.0, half_angle=None):
+        """Visible ground area at the current altitude, above min_elevation or for a nadir sensor half-angle."""
+        from .satellite import footprint
+
+        return footprint(self, min_elevation, half_angle)
+
+    def beta_angle(self) -> float:
+        """Angle between the orbit plane and the Sun direction at the epoch [rad] (Earth orbits)."""
+        from .satellite import beta_angle
+
+        return beta_angle(self)
+
+    def eclipse_fraction(self) -> float:
+        """Fraction of the orbit in Earth's shadow, from the beta angle (circular orbit, cylindrical shadow)."""
+        from .satellite import eclipse_fraction
+
+        return eclipse_fraction(self)
+
     # ---------------------------------------------------------- explanation and plotting
 
     def explain(self):

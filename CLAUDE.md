@@ -59,4 +59,6 @@ v0.1 (SPEC.md section 8):
 - [x] Frames: `core.frames` (GMST, ECEF, geodetic, look angles) — DECISIONS D31
 - [x] Ground track, passes (`ground.py`), eclipses (`eclipse.py`), lifetime (`lifetime.py`) — D32, D33
 - [x] Planets and moons, patched-conic `Body.hohmann_to` (`interplanetary.py`, `core/interplanetary.py`, `core/planets.py`) — D35, D36
+- [x] Lambert (`core/lambert.py`), porkchop and gravity assists (`missions.py`, `core/flyby.py`) — D37, D38
+- [x] Satellite operations: rendezvous, phasing, deorbit, relative motion, Doppler, footprint, beta angle, propellant (`satellite.py`) — D39
 - Validation references: Skyfield (dev dependency) for ground tracks and passes; full propagation for lifetime

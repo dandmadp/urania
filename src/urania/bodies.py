@@ -105,6 +105,25 @@ class Body:
         return hohmann_between(self, target, parking_altitude, capture_altitude,
                                capture_ecc=capture_ecc, after=after)
 
+    def lambert_to(self, target: Body, departure, arrival, parking_altitude, capture_altitude=None, **kwargs):
+        """Direct transfer on a Lambert arc between two planets on given dates; returns a `Mission`.
+
+        arrival is an Epoch or a time of flight. Planet positions come from the Standish mean elements.
+        Example: ``Earth.lambert_to(Mars, Epoch.from_iso("2026-11-20T00:00:00"), 300 * u.day, 300 * u.km)``
+        """
+        from .missions import lambert_transfer
+
+        return lambert_transfer(self, target, departure, arrival, parking_altitude, capture_altitude, **kwargs)
+
+    def flyby(self, v_inf_in, altitude, *, epoch=None, b_angle=0.0):
+        """Unpowered flyby with incoming excess velocity v∞_in (3-vector, ecliptic frame); returns a `Flyby`.
+
+        With epoch, the planet's velocity gives the change of heliocentric speed.
+        """
+        from .missions import flyby
+
+        return flyby(self, v_inf_in, altitude, epoch=epoch, b_angle=b_angle)
+
     def __repr__(self) -> str:
         return f"Body({self.name!r}, R={self.radius / 1e3:.1f} km)"
 

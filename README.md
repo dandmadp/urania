@@ -147,7 +147,52 @@ With `after=`, the departure date is the first time the actual planet positions 
 1800 to 2050) reach the Hohmann phase angle. The pure formulas (v∞, departure and capture Δv, phase angle, synodic
 period, sphere of influence) are in `urania.core.interplanetary` and work with plain numbers.
 
-## CubeSat operations
+### Lambert transfers, porkchop plots and gravity assists
+
+Real launch dates and flight times need Lambert's problem: the arc between the planets' actual positions.
+
+```python
+import astropy.units as u
+import urania as ur
+
+E = ur.Epoch.from_iso
+m = ur.Earth.lambert_to(ur.Mars, E("2026-11-01T00:00:00"), 300 * u.day, 300 * u.km, 300 * u.km)
+print(m, m.c3, m.v_inf_arrival)
+
+p = ur.porkchop(ur.Earth, ur.Mars, (E("2026-08-01T00:00:00"), E("2027-01-01T00:00:00")),
+                (E("2027-04-01T00:00:00"), E("2028-03-01T00:00:00")), step=10 * u.day)
+best = p.best("c3")        # the minimum-C3 transfer as a Mission
+p.plot()
+
+# Mariner 10: Earth → Venus flyby → Mercury
+mariner = ur.flyby_mission([ur.Earth, ur.Venus, ur.Mercury],
+                           [E("1973-11-03T17:45:00"), E("1974-02-05T17:01:00"), E("1974-03-29T20:47:00")],
+                           parking_altitude=185 * u.km)
+print(mariner.flybys[0])   # altitude 5,739 km (actual 5,768 km), turn 33.8°, heliocentric -4.57 km/s
+mariner.plot()
+```
+
+Each intermediate planet joins the incoming and outgoing v∞ with a flyby; when the magnitudes differ, a periapsis
+burn makes up the difference (a powered flyby), and flybys below `min_flyby_altitude` are flagged infeasible.
+`Body.flyby(v_inf_in, altitude)` shows what a single unpowered flyby does. The solver
+(`urania.core.lambert.lambert`) handles any conic, both directions and multiple revolutions.
+
+## Rendezvous, phasing and deorbit
+
+```python
+import astropy.units as u
+import urania as ur
+
+chaser = ur.Orbit.circular(ur.Earth, 400 * u.km, inc=51.64 * u.deg)
+target = ur.Orbit.circular(ur.Earth, 420 * u.km, inc=51.64 * u.deg, arglat=5 * u.deg)
+# two burns on a Lambert arc (any pair of orbits); 3 revolutions on the way: about 27 m/s
+chaser.rendezvous(target, 345 * u.min, revolutions=3, branch="right")
+target.phasing(-10 * u.deg, revolutions=3)     # drift 10° back along the same orbit
+chaser.deorbit(50 * u.km)                      # lower perigee to 50 km
+t = chaser.deorbit()
+print(t.propellant(mass=4 * u.kg, isp=220 * u.s))   # rocket equation, kg
+```
+
 
 Ground tracks, station passes, eclipses and lifetime work on any trajectory around Earth (from `Orbit.propagate`
 or `TLEOrbit.propagate`).
@@ -171,6 +216,17 @@ track.plot(stations=[station])
 
 life = iss.to_orbit().lifetime(area=0.03 * u.m**2, mass=4 * u.kg)   # about a second
 print(life, life.explain())
+
+doppler = day.doppler(station, 437.5 * u.MHz)            # range rate and Doppler shift
+doppler.plot(min_elevation=10 * u.deg)
+orbit = iss.to_orbit()
+print(orbit.footprint(10 * u.deg))                        # visible area above 10° elevation
+print(orbit.footprint(half_angle=30 * u.deg))             # nadir camera swath
+print(orbit.beta_angle(), orbit.eclipse_fraction())       # Sun angle to the orbit plane, shadow fraction
+
+# Relative motion of a deployed CubeSat (LVLH: x radial, y along-track, z normal)
+deployed = ur.Orbit(ur.Earth, orbit.r, orbit.v + [0.0, 0.0, 0.5], orbit.epoch)
+deployed.propagate(orbit.period * 3).relative_to(orbit).plot()
 ```
 
 ## TLE
@@ -207,6 +263,11 @@ TLE elements are SGP4-specific mean elements, so they are kept separate from `Or
 | Station passes | Skyfield `find_events`, 4 stations, 3 days, 39 passes | rise/peak/set within 0.23 s, peak elevation within 0.009° |
 | Lifetime (averaged method) | full j2+drag propagation, 250 to 350 km | within 2% |
 | Interplanetary Hohmann transfers | Curtis examples 8.1, 8.3, 8.4; Table 8.1 (spheres of influence) | printed precision |
+| Lambert's problem | Curtis example 5.2, Vallado example 7-5; random round trips (multi-revolution) | printed precision; 1e-6 relative |
+| Lambert transfers between planets | Curtis example 8.8 (Mars Global Surveyor) | v∞ within 5 m/s |
+| Gravity assist | Mariner 10 Venus flyby (1974) | flyby altitude 5,739 km vs 5,768 km flown, nearly unpowered |
+| Relative motion | two-body propagation | Clohessy-Wiltshire within second-order terms; CW and Lambert rendezvous agree within 2% |
+| Doppler and eclipses from β | finite differences; conical eclipse search | range rate within 0.5 m/s; shadow fraction within 1% |
 | Planet positions (Standish) | JPL DE421 via Skyfield, 1900 to 2050 | within 0.5' (inner planets), 1.3' (Mars), 12' (Saturn) |
 
 SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sanity check rather than precise validation. Precise validation comes from the GMAT comparison ([validation/gmat](https://github.com/dandmadp/urania/blob/main/validation/gmat), [tests/test_gmat.py](https://github.com/dandmadp/urania/blob/main/tests/test_gmat.py)).
@@ -218,8 +279,9 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
 - Perturbations: J2 and atmospheric drag. Lunar/solar perturbations, solar radiation pressure and higher-order gravity come later.
 - Atmosphere: Vallado's exponential model (mean solar activity), with height above the reference ellipsoid. Real density varies several-fold with solar activity.
 - Maneuvers: impulsive transfers between circular orbits. Rendezvous (phasing) comes later. Body-to-body transfers
-  are patched-conic Hohmann transfers between circular coplanar orbits; Lambert solutions (porkchop plots) and
-  gravity assists come later. Moon positions are not modeled, so departure dates exist only between planets.
+  use patched conics (Hohmann estimates, or Lambert arcs between Standish planet positions with powered or
+  unpowered flybys); deep-space maneuvers and trajectory optimization are not included. Moon positions are not
+  modeled, so dated transfers exist only between planets.
 - Time: TDB internally. UTC goes through astropy: `Epoch.from_utc()`, `epoch.utc`, `Epoch.now()`.
 - Frames: the inertial frame's z axis is Earth's spin axis (true equator of date, like TEME); precession and nutation
   are not modeled, so give state vectors in that frame. Earth-fixed coordinates use GMST with UT1 ≈ UTC and no polar
@@ -230,6 +292,7 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
 
 - [examples/quickstart.py](https://github.com/dandmadp/urania/blob/main/examples/quickstart.py): ISS → GEO transfer
 - [examples/cubesat_decay.py](https://github.com/dandmadp/urania/blob/main/examples/cubesat_decay.py): 3U CubeSat decay and sensitivity to atmospheric density
+- [examples/missions_and_operations.py](https://github.com/dandmadp/urania/blob/main/examples/missions_and_operations.py): porkchop plot, Mariner 10 gravity assist, rendezvous and Doppler
 - [examples/interplanetary.py](https://github.com/dandmadp/urania/blob/main/examples/interplanetary.py): Hohmann transfers from Earth to every planet with departure dates
 - [examples/tle_vs_propagator.py](https://github.com/dandmadp/urania/blob/main/examples/tle_vs_propagator.py): comparison with SGP4 using a real ISS TLE
 

@@ -222,6 +222,8 @@ def explain_transfer(t: Transfer) -> Explanation:
     r1, r2 = t.initial.a, t.target.a
     names = {"hohmann": "Hohmann transfer", "bielliptic": "Bi-elliptic transfer",
              "plane_change": "Plane change", "none": "No transfer"}
+    if t.kind in ("lambert", "phasing", "deorbit"):
+        return _explain_other_transfer(t)
     ex = Explanation(f"{names[t.kind]}: r₁ = {_km(r1)} → r₂ = {_km(r2)}")
 
     start = [f"μ = {mu:.6e} m³/s²",
@@ -454,4 +456,122 @@ def explain_body_transfer(t) -> Explanation:
                 f"arrival {t.arrival_epoch.iso[:16]} TDB")
     ex.step("Total", f"{_kms(t.dv_departure)} + {_kms(t.dv_arrival)} = {_kms(t.total_dv)}")
     ex.assumptions.extend(t.assumptions)
+    return ex
+
+
+def _explain_other_transfer(t: Transfer) -> Explanation:
+    """Lambert rendezvous, phasing and deorbit transfers."""
+    from .core import lambert as _lam
+
+    mu = t.initial.body.mu
+    if t.kind == "lambert":
+        b1, b2 = t.burns
+        arc = t.orbits[0]
+        dnu = _lam.transfer_angle(b1.r, b2.r, True, np.cross(t.initial.r, t.initial.v))
+        ex = Explanation(f"Lambert rendezvous: tof = {t.tof / 60:.2f} min")
+        if t.coast > 0:
+            ex.step("Coast", f"wait {t.coast:,.1f} s before the first burn")
+        ex.step("Lambert problem (universal variables, Curtis algorithm 5.2)",
+                f"r₁ = {_vec(b1.r, 1e3, 'km')} (chaser at the first burn)",
+                f"r₂ = {_vec(b2.r, 1e3, 'km')} (target after tof)",
+                f"transfer angle Δν = {_deg(dnu)}",
+                "solve tof = (χ³S(z) + A√y(z))/√μ for z;  A = sin Δν √(r₁r₂/(1 − cos Δν))",
+                "v₁ = (r₂ − f r₁)/g,  v₂ = (ġ r₂ − r₁)/g with f = 1 − y/r₁, g = A√(y/μ), ġ = 1 − y/r₂")
+        ex.step("Transfer arc", f"a = {_km(arc.a)}, e = {arc.ecc:.6f}, periapsis altitude "
+                                f"{_km(arc.periapsis_altitude)}")
+        ex.step("Burns", f"Δv₁ = |v₁ − v_chaser| = {_kms(b1.magnitude)}",
+                f"Δv₂ = |v_target − v₂| = {_kms(b2.magnitude)}")
+    elif t.kind == "phasing":
+        r = float(np.linalg.norm(t.initial.r))
+        ph = t.orbits[0]
+        k = round(t.tof / ph.period)
+        n = math.sqrt(mu / r**3)
+        dtheta = 2 * math.pi * k - n * t.tof
+        ex = Explanation(f"Phasing: {math.degrees(dtheta):+.4f}° in {k} revolution(s)")
+        ex.step("Phasing orbit (Curtis section 6.6)",
+                f"T = 2π/n = {2 * math.pi / n / 60:.3f} min (circular orbit, r = {_km(r)})",
+                f"T_ph = (2πk − Δθ)/(n k) = {ph.period / 60:.3f} min",
+                f"a_ph = (μ T_ph²/4π²)^(1/3) = {_km(ph.a)};  other apsis {_km(2 * ph.a - r)}")
+        v_c, v_ph = _tb.circular_velocity(r, mu), _tb.vis_viva(r, ph.a, mu)
+        ex.step("Burns", f"v_c = {_kms(v_c)},  v_ph = √(μ(2/r − 1/a_ph)) = {_kms(v_ph)}",
+                f"Δv = 2|v_ph − v_c| = {_kms(2 * abs(v_ph - v_c))} (enter and leave)",
+                f"duration k·T_ph = {t.tof / 3600:.4f} h")
+        if abs(2 * abs(v_ph - v_c) - t.total_dv) > 1e-6 * max(t.total_dv, 1.0):
+            ex.warnings.append("The formula Δv differs from the state-vector value.")
+    else:
+        b = t.burns[0]
+        after = t.final
+        ex = Explanation(f"Deorbit: periapsis altitude {_km(after.periapsis_altitude)}")
+        r_a, r_p = float(np.linalg.norm(b.r)), after.r_periapsis
+        ex.step("Burn at apoapsis",
+                f"r_a = {_km(r_a)},  target r_p = {_km(r_p)}",
+                f"v after = √(μ(2/r_a − 2/(r_a + r_p))) = {_kms(_tb.vis_viva(r_a, 0.5 * (r_a + r_p), mu))}",
+                f"Δv = {_kms(b.magnitude)} (retrograde)",
+                f"time from the burn to periapsis: {after.period / 2 / 60:.1f} min")
+    ex.step("Total", f"{_kms(t.total_dv)}")
+    ex.assumptions.extend(t.assumptions)
+    return ex
+
+
+def explain_flyby(f) -> Explanation:
+    """Flyby turn angle, periapsis and burn (Curtis section 8.9)."""
+    from .core import flyby as _fb
+
+    mu = f.body.mu
+    vi, vo = float(np.linalg.norm(f.v_inf_in)), float(np.linalg.norm(f.v_inf_out))
+    ex = Explanation(f"Flyby of {f.body.name}")
+    lines = [f"|v∞_in| = {_kms(vi)},  |v∞_out| = {_kms(vo)}",
+             f"periapsis r_p = {_km(f.r_p)} (altitude {_km(f.altitude)})",
+             f"turn angle δ = {_deg(f.turn_angle)}"]
+    if f.dv > 0:
+        lines += ["powered flyby: asin(1/e_in) + asin(1/e_out) = δ with e = 1 + r_p v∞²/μ",
+                  f"burn at periapsis |√(v∞_out² + 2μ/r_p) − √(v∞_in² + 2μ/r_p)| = {_kms(f.dv)}"]
+    else:
+        e = 1 + f.r_p * vi * vi / mu
+        lines += [f"e = 1 + r_p v∞²/μ = {e:.5f},  δ = 2 asin(1/e) = {_deg(_fb.turn_angle(vi, f.r_p, mu))}"]
+    ex.step("Hyperbola", *lines)
+    if f.speed_gain is not None:
+        v_b = float(np.linalg.norm(f.v_body))
+        ex.step("Heliocentric effect",
+                f"planet speed {_kms(v_b)}",
+                f"spacecraft speed {_kms(np.linalg.norm(f.v_body + f.v_inf_in))} → "
+                f"{_kms(np.linalg.norm(f.v_body + f.v_inf_out))} ({f.speed_gain / 1e3:+.4f} km/s)")
+    if not f.feasible:
+        ex.warnings.append(f"The periapsis altitude {_km(f.altitude)} is below the allowed "
+                           f"{_km(f.min_altitude)}: this flyby cannot provide the turn")
+    ex.assumptions += ["patched conics: the flyby is instantaneous on the heliocentric scale",
+                       "planet treated as a point mass"]
+    return ex
+
+
+def explain_mission(m) -> Explanation:
+    """Lambert legs, flybys and burns of an interplanetary mission."""
+    path = " → ".join(b.name for b in m.sequence)
+    ex = Explanation(f"Mission {path}: {m.departure.iso[:10]} → {m.arrival.iso[:10]} ({m.tof / DAY:.1f} days)")
+    first = m.sequence[0]
+    r_park = first.radius + m.parking_altitude
+    ex.step(f"Departure from {first.name}",
+            f"v∞ = |v₁ − V_{first.name}| = {_kms(m.v_inf_departure)},  C3 = {m.c3 / 1e6:.3f} km²/s²",
+            f"Δv = √(v∞² + 2μ/r_p) − √(μ/r_p) = {_kms(m.dv_departure)}  (r_p = {_km(r_park)})")
+    for k, leg in enumerate(m.legs):
+        lines = [f"{leg.departure.iso[:10]} → {leg.arrival.iso[:10]}, tof {leg.tof / DAY:.1f} days, "
+                 f"Δν = {_deg(leg.transfer_angle)}" + (f", {leg.revolutions} rev" if leg.revolutions else ""),
+                 f"v∞ out {_kms(np.linalg.norm(leg.v_inf_out))}, v∞ in {_kms(np.linalg.norm(leg.v_inf_in))}"]
+        ex.step(f"Leg {k + 1}: {leg.origin.name} → {leg.target.name} (Lambert arc around the Sun)", *lines)
+        if k < len(m.flybys):
+            f = m.flybys[k]
+            fx = explain_flyby(f)
+            ex.step(f"Flyby of {f.body.name}", *[x for _, lines in fx.steps for x in lines])
+            ex.warnings.extend(fx.warnings)
+    last = m.sequence[-1]
+    if m.capture_altitude is None:
+        ex.step(f"Arrival at {last.name}", f"v∞ = {_kms(m.v_inf_arrival)}; no capture burn")
+    else:
+        ex.step(f"Capture at {last.name}",
+                f"v∞ = {_kms(m.v_inf_arrival)}, periapsis altitude {_km(m.capture_altitude)}, "
+                f"e = {m.capture_ecc:g}",
+                f"Δv = √(v∞² + 2μ/r_p) − √(μ(1 + e)/r_p) = {_kms(m.dv_arrival)}")
+    parts = [_kms(m.dv_departure)] + [_kms(f.dv) for f in m.flybys] + [_kms(m.dv_arrival)]
+    ex.step("Total", " + ".join(parts) + f" = {_kms(m.total_dv)}")
+    ex.assumptions.extend(m.assumptions)
     return ex
