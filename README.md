@@ -63,8 +63,7 @@ print(ur.Earth.hohmann_to("Mars", "300 km", "300 km", after="2026-01-01").summar
 - Values can be written as strings with units (`"500 km"`, `"97.4 deg"`, `"90 min"`) or as astropy Quantities
   (`500 * ur.u.km`). Plain numbers are SI: meters, seconds, radians.
 - If a plain number looks like a unit mistake (an angle above 2π radians, which usually means degrees, or an
-  altitude below 1 km), a
-  `UnitWarning` points at your line and suggests the fix.
+  altitude below 1 km), a `UnitWarning` points at your line and suggests the fix.
 - Dates are strings such as `"2026-11-01"` or `"2026-11-01 12:30"` (TDB), or `"2026-11-01T12:30Z"` for UTC;
   datetimes and astropy Times work too. Bodies can be named: `"Mars"`, `ur.body("titan")`.
 - Time spans: `propagate(days=1)`, `hours=2`, `minutes=90` or `"90 min"`.
