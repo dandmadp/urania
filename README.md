@@ -142,6 +142,19 @@ start.propagate(density=3e-12, **kw)                                       # con
 start.propagate(density=lambda r, t: 2 * ur.Earth.atmosphere(r, t), **kw)  # function
 ```
 
+For realistic drag and lifetimes, use NRLMSISE-00 (`pip install urania[msis]`). Density in low orbit changes
+ten-fold or more over the solar cycle, which the default exponential table cannot show:
+
+```python
+import urania as ur
+
+orbit = ur.Orbit.circular("Earth", "400 km", inc="51.6 deg", epoch="2026-11-01")
+for activity in ("low", "moderate", "high"):                      # solar minimum to maximum
+    msis = ur.NRLMSISE00(activity=activity)                       # or NRLMSISE00(f107=180, ap=15)
+    print(activity, orbit.lifetime(area="0.03 m2", mass="4 kg", density=msis))
+# NRLMSISE00(historical=True) uses the observed F10.7 and Ap of each date (downloaded by pymsis)
+```
+
 ## Maneuvers
 
 ```python
@@ -306,6 +319,7 @@ TLE elements are SGP4-specific mean elements, so they are kept separate from `Or
 | Gravity assist | Mariner 10 Venus flyby (1974) | flyby altitude 5,739 km vs 5,768 km flown, nearly unpowered |
 | Relative motion | two-body propagation | Clohessy-Wiltshire within second-order terms; CW and Lambert rendezvous agree within 2% |
 | Doppler and eclipses from β | finite differences; conical eclipse search | range rate within 0.5 m/s; shadow fraction within 1% |
+| NRLMSISE-00 drag | NASA GMAT R2026a (NRLMSISE00, F10.7 150, Kp 3), 400 km, 3 days | 15 m out of a 253 km effect (true pole) |
 | Zonal harmonics J2-J6 | NASA GMAT R2026a, 600 km, 63°, 7 days | at most 2.5 m (true pole) |
 | Sun and Moon gravity | NASA GMAT R2026a (DE405), 20,200 km, 7 days | 18.7 m out of a 7.9 km effect (analytic Moon) |
 | Solar radiation pressure | NASA GMAT R2026a, GEO, 7 days | 0.49 m out of a 3.2 km effect |
@@ -320,7 +334,8 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
 
 - Perturbations: zonal harmonics (J2-J6), drag, Sun and Moon point masses (analytic positions), solar radiation
   pressure on a sphere. Tesseral harmonics, tides and relativity are not modeled.
-- Atmosphere: Vallado's exponential model (mean solar activity), with height above the reference ellipsoid. Real density varies several-fold with solar activity.
+- Atmosphere: Vallado's exponential model by default (mean solar activity); NRLMSISE-00 through pymsis with
+  constant, preset or observed solar and geomagnetic activity. Future solar activity is not forecast.
 - Maneuvers: impulsive burns. Hohmann, bi-elliptic and phasing maneuvers need circular orbits; Lambert rendezvous
   and deorbit work with any elliptic orbit. Body-to-body transfers
   use patched conics (Hohmann estimates, or Lambert arcs between Standish planet positions with powered or

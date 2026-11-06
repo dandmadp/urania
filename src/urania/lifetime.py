@@ -100,14 +100,23 @@ def lifetime(orbit: Orbit, *, cd: float = 2.2, area, mass, density=None, method:
                              f"e = {orbit.ecc:.3f}. Use method='numerical'")
         a0 = _mean_semi_major_axis(orbit)
         correction = _j2_correction(orbit, a0, body.radius + h_stop, ballistic, rho)
+        if body.J2:
+            from .core import j2 as _j2
+
+            def node_rate(a):
+                return _j2.raan_rate(a, 0.0, orbit.inc, body.mu, body.radius, body.J2)
+        else:
+            node_rate = None
         res = _life.decay_history(a0, orbit.inc, body.mu, body.rotation_rate, ballistic, rho,
-                                  body.radius + h_stop, t_max, orbit.epoch.tdb_seconds, correction)
+                                  body.radius + h_stop, t_max, orbit.epoch.tdb_seconds, correction,
+                                  raan0=orbit.raan, raan_rate=node_rate)
         days = res.t[-1] / SECONDS_PER_DAY
         assumptions = (
             "orbit-averaged decay of a circular orbit: da/dt = 2 a_T / n averaged over the argument of latitude",
             "starts from the semi-major axis averaged over one J2 orbit (osculating a swings by kilometers)",
             "decay rate corrected by its ratio to the rate averaged along J2 orbits at several altitudes "
             "(the J2 orbit radius varies with latitude, which changes the mean density)",
+            "the orbit plane keeps its node (with J2 precession), so local-time effects of the atmosphere count",
             f"reentry when the mean altitude falls below {h_stop / 1e3:g} km",
             *common,
         )
@@ -154,7 +163,7 @@ def _j2_correction(orbit: Orbit, a0: float, r_stop: float, ballistic: float, rho
     a_means, factors = [], []
     for a_target in levels:
         r_start = a_target + shift
-        r0, v0 = _el.coe_to_rv(r_start, 0.0, orbit.inc, 0.0, 0.0, 0.0, body.mu)
+        r0, v0 = _el.coe_to_rv(r_start, 0.0, orbit.inc, orbit.raan, 0.0, 0.0, body.mu)
         period = 2.0 * np.pi * np.sqrt(r_start**3 / body.mu)
 
         def accel(t, r, v):
@@ -164,7 +173,8 @@ def _j2_correction(orbit: Orbit, a0: float, r_stop: float, ballistic: float, rho
         r, v = res.r[:-1], res.v[:-1]
         a_mean = float(np.mean(_tb.semi_major_axis(r, v, body.mu)))
         true = _life.sampled_decay_rate(r, v, body.mu, body.rotation_rate, ballistic, rho, t0)
-        ideal = _life.mean_decay_rate(a_mean, orbit.inc, body.mu, body.rotation_rate, ballistic, rho, t0)
+        ideal = _life.mean_decay_rate(a_mean, orbit.inc, body.mu, body.rotation_rate, ballistic, rho, t0,
+                                      raan=orbit.raan)
         a_means.append(a_mean)
         factors.append(true / ideal if ideal != 0.0 else 1.0)
     order = np.argsort(a_means)

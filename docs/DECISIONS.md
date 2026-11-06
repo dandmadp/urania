@@ -307,3 +307,18 @@
   P = 4.56e-6 N/m² at 1 AU (Montenbruck & Gill); GMAT agrees to 0.015% of the effect.
 - A body counts as Earth for these terms when its μ and radius match Earth's (so modified Earth models such as
   GMAT's EGM96 constants work).
+
+## D43. NRLMSISE-00 through pymsis, an optional dependency (0.1)
+- NRLMSISE-00 is the standard empirical model for satellite drag; its coefficient tables run to thousands of
+  lines. pymsis (maintained by CU/LASP SWx TREC) wraps the reference Fortran code with wheels for every
+  platform, so urania calls it rather than re-implementing it. It stays optional (`urania[msis]`): the
+  exponential table remains the dependency-free default.
+- Solar and geomagnetic activity is an input, as the environment-injection principle (SPEC 2.6) asks: explicit
+  F10.7/Ap, presets for low, moderate and high activity, or observed values (pymsis downloads them). Forecasts
+  are left to the user.
+- The Earth-fixed position uses GMST with UT1 ≈ UTC, the same rotation as ground tracks (D31). TDB - UTC comes
+  from astropy and is cached for 30 days of simulated time. GMAT's NRLMSISE00 agrees to 15 m out of a 253 km
+  drag effect over 3 days.
+- The averaged lifetime now carries the node and its J2 drift as a second state, because the day-side bulge
+  makes a dawn-dusk orbit last longer than a noon-midnight one (8% at 450 km); densities along the orbit are
+  evaluated in one vectorized call when the model offers `many(r, t)`.

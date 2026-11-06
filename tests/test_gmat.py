@@ -10,13 +10,15 @@ Measured results (urania vs GMAT, maximum position difference over the run):
 | twobody, 1 day   | 0.009 m             | -               |
 | j2, 7 days       | 144 m               | 3.30 m          |
 | j2_drag, 3 days  | 73 m                | 3.32 m          |
+| j2_msis, 3 days  | 66 m                | 15.4 m          |
 | zonal, 7 days    | 117 m               | 2.47 m          |
 | sun_moon, 7 days | 18.7 m              | -               |
 | srp, 7 days      | 0.49 m              | -               |
 
 zonal: J2-J6 (EGM96), 600 km, 63°. sun_moon: Sun and Moon point masses at 20,200 km (GPS altitude); GMAT uses
 the DE405 ephemeris and urania analytic positions (Moon within ~0.3°), which is most of the 18.7 m out of a
-7.9 km perturbation. srp: radiation pressure at GEO, C_R·A/m = 0.026 m²/kg (0.49 m out of 3.2 km).
+7.9 km perturbation. j2_msis: NRLMSISE-00 with F10.7 = 150 and Kp = 3 (Ap = 15), 15.4 m out of a 253 km
+drag effect; the decay over 3 days agrees to 0.02 km in 8.79 km. srp: radiation pressure at GEO, C_R·A/m = 0.026 m²/kg (0.49 m out of 3.2 km).
 
 GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the J2000 epoch is
 tilted 7.69" from the MJ2000Eq z axis (nutation). urania uses the frame's z axis as the spin axis.
@@ -40,14 +42,14 @@ _spec = importlib.util.spec_from_file_location(
 gmat = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gmat)
 
-MODELS = {"twobody": "twobody", "j2": "j2", "j2_drag": "j2+drag", "zonal": "zonal", "sun_moon": "sun+moon",
+MODELS = {"twobody": "twobody", "j2": "j2", "j2_drag": "j2+drag", "j2_msis": "j2+drag", "zonal": "zonal", "sun_moon": "sun+moon",
           "srp": "srp"}
 
 # Maximum allowed position difference [m] in the EarthMJ2000Eq frame (measured value + margin)
-LIMITS = {"twobody": 0.05, "j2": 200.0, "j2_drag": 150.0, "zonal": 150.0, "sun_moon": 30.0, "srp": 1.0}
+LIMITS = {"twobody": 0.05, "j2": 200.0, "j2_drag": 150.0, "j2_msis": 100.0, "zonal": 150.0, "sun_moon": 30.0, "srp": 1.0}
 
 # Maximum allowed position difference [m] once both use the true spin axis
-TRUE_POLE_LIMITS = {"j2": 5.0, "j2_drag": 5.0, "zonal": 4.0}
+TRUE_POLE_LIMITS = {"j2": 5.0, "j2_drag": 5.0, "j2_msis": 25.0, "zonal": 4.0}
 
 
 def load_gmat(name: str) -> np.ndarray:
@@ -89,6 +91,12 @@ def position_errors(name: str, rotation: np.ndarray | None = None) -> tuple[np.n
     orbit = Orbit(orbit.body, M @ orbit.r, M @ orbit.v, orbit.epoch)
     t = data[:, 0]
     kwargs = gmat.DRAG_SAT if sc["drag"] else gmat.SRP_SAT if sc.get("srp") else {}
+    if sc["drag"] == "msis":
+        pytest.importorskip("pymsis")
+        from urania import NRLMSISE00
+
+        w = gmat.MSIS_WEATHER
+        kwargs = dict(kwargs, density=NRLMSISE00(w["f107"], w["f107a"], w["ap"]))
     # Sample urania at every GMAT output time
     tr = orbit.propagate(float(t[-1]), model=MODELS[name], n_points=len(t), **kwargs)
     np.testing.assert_allclose(tr.t, t, atol=1e-6)

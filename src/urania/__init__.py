@@ -13,7 +13,7 @@ from .bodies import (
 )
 from .bodies import get as body
 from .eclipse import Eclipse, EclipseReport
-from .environment import Environment
+from .environment import NRLMSISE00, Environment
 from .ground import GroundStation, GroundTrack, Pass, PassReport
 from .interplanetary import BodyTransfer
 from .lifetime import Lifetime
@@ -35,7 +35,7 @@ __all__ = [
     "Miranda", "Ariel", "Umbriel", "Titania", "Oberon", "Triton", "PLANETS", "MOONS",
     "Orbit", "sun_synchronous", "LEO", "ISS", "SSO", "GEO",
     "Epoch", "J2000",
-    "Environment", "Trajectory", "PropagationInfo", "Transfer", "Burn", "BodyTransfer",
+    "Environment", "NRLMSISE00", "Trajectory", "PropagationInfo", "Transfer", "Burn", "BodyTransfer",
     "Mission", "Leg", "Flyby", "Porkchop", "flyby_mission", "porkchop",
     "RelativeMotion", "Doppler", "Footprint",
     "TLEOrbit",

@@ -59,6 +59,11 @@ SCENARIOS = {
                                      raan=30 * u.deg),
         degree=2, drag=True, hours=24 * 3,
     ),
+    "j2_msis": dict(
+        orbit=lambda: Orbit.circular(GMAT_EARTH, 400 * u.km, inc=51.64 * u.deg,
+                                     raan=30 * u.deg),
+        degree=2, drag="msis", hours=24 * 3,
+    ),
     "zonal": dict(
         orbit=lambda: Orbit.circular(GMAT_EARTH, 600 * u.km, inc=63 * u.deg, raan=30 * u.deg),
         degree=6, drag=False, hours=24 * 7,
@@ -75,6 +80,8 @@ SCENARIOS = {
 
 # Spacecraft for the drag scenario (C_D·A/m = 0.022 m²/kg)
 DRAG_SAT = dict(cd=2.2, area=1.0, mass=100.0)
+# Space weather for the NRLMSISE-00 scenario: GMAT's Kp = 3 is Ap = 15
+MSIS_WEATHER = dict(f107=150.0, f107a=150.0, kp=3, ap=15.0)
 # Spacecraft for the radiation-pressure scenario (C_R·A/m = 0.026 m²/kg)
 SRP_SAT = dict(cr=1.3, area=20.0, mass=1000.0)
 
@@ -142,6 +149,21 @@ EndFor;
 """
 
 
+def _atmosphere_lines(drag) -> str:
+    """Extra force-model lines for the atmosphere."""
+    if drag is True:
+        # Same table as urania's (Vallado table 8-4); path relative to GMAT's bin folder
+        return ("\nGMAT FM.Drag.InputFile = "
+                "'../data/atmosphere/earth/EarthExponentialAtmosphereData.txt';")
+    if drag == "msis":
+        w = MSIS_WEATHER
+        return ("\nGMAT FM.Drag.HistoricWeatherSource = 'ConstantFluxAndGeoMag';"
+                f"\nGMAT FM.Drag.F107 = {w['f107']};"
+                f"\nGMAT FM.Drag.F107A = {w['f107a']};"
+                f"\nGMAT FM.Drag.MagneticIndex = {w['kp']};")
+    return ""
+
+
 def main() -> None:
     FIXTURES.mkdir(parents=True, exist_ok=True)
     for name, sc in SCENARIOS.items():
@@ -150,11 +172,9 @@ def main() -> None:
         vx, vy, vz = o.v / 1e3
         text = TEMPLATE.format(
             name=name, epoch=EPOCH_GMAT, x=x, y=y, z=z, vx=vx, vy=vy, vz=vz,
-            degree=sc["degree"], atmosphere="Exponential" if sc["drag"] else "None",
-            # Same table as urania's (Vallado table 8-4); path relative to GMAT's bin folder
-            atmosphere_file=("\nGMAT FM.Drag.InputFile = "
-                             "'../data/atmosphere/earth/EarthExponentialAtmosphereData.txt';"
-                             if sc["drag"] else ""),
+            degree=sc["degree"],
+            atmosphere={True: "Exponential", "msis": "NRLMSISE00"}.get(sc["drag"], "None"),
+            atmosphere_file=_atmosphere_lines(sc["drag"]),
             radius_km=GMAT_EARTH.radius / 1e3, flattening=GMAT_EARTH.flattening,
             hours=sc["hours"], output=(FIXTURES / f"{name}.txt").as_posix(),
             point_masses="\nGMAT FM.PointMasses = {Sun, Luna};" if sc.get("point_masses") else "",

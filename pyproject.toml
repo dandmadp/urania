@@ -39,7 +39,8 @@ Source = "https://github.com/dandmadp/urania"
 Issues = "https://github.com/dandmadp/urania/issues"
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "skyfield>=1.45"]
+msis = ["pymsis>=0.10"]
+dev = ["pytest>=7", "skyfield>=1.45", "pymsis>=0.10"]
 
 [tool.hatch.build.targets.sdist]
 exclude = ["CLAUDE.md", ".gitattributes"]

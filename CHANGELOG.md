@@ -6,6 +6,12 @@
 - Force terms "zonal" (J2-J6; Earth's EGM-08 values in `Earth.zonal`), "sun", "moon" (analytic Moon position,
   Vallado algorithm 31) and "srp" (solar radiation pressure with Earth's conical shadow, `cr`), and fidelity
   levels 3 and 4. Validated against NASA GMAT.
+- `NRLMSISE00` atmosphere (optional dependency: `pip install urania[msis]`) with F10.7/Ap values, presets
+  ("low", "moderate", "high") or observed space weather; validated against GMAT's NRLMSISE00.
+
+### Changed
+- Lifetime estimates keep the orbit's node and its J2 precession, so local-time effects of the atmosphere
+  (the day-side bulge) count; density models may offer `many(r, t)` for vectorized evaluation.
 
 ## 0.0.3 (2026-10-23)
 
