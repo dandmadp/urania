@@ -1,0 +1,352 @@
+Ariel: Body
+BODIES: mappingproxy
+class Body(name: 'str', mu: 'float', radius: 'float', J2: 'float' = 0.0, rotation_rate: 'float' = 0.0, flattening: 'float' = 0.0, atmosphere: 'Any' = None, source: 'str' = '', parent: 'Body | None' = None, semi_major_axis: 'float' = 0.0, ephemeris: 'str | None' = None, retrograde: 'bool' = False, zonal: 'tuple' = ()) -> None
+  Body.create(name: 'str', mu, radius, J2: 'float' = 0.0, rotation_rate=0.0, flattening: 'float' = 0.0, atmosphere=None, source: 'str' = '', parent: 'Body | None' = None, semi_major_axis=0.0, retrograde: 'bool' = False) -> 'Body'
+  Body.flyby(self, v_inf_in, altitude, *, epoch=None, b_angle=0.0)
+  Body.hohmann_to(self, target: 'Body', parking_altitude, capture_altitude=None, *, capture_ecc: 'float' = 0.0, after=None)
+  Body.lambert_to(self, target: 'Body', departure, arrival, parking_altitude, capture_altitude=None, **kwargs)
+  Body.mass [property]
+  Body.orbital_period [property]
+  Body.soi [property]
+  Body fields: name, mu, radius, J2, rotation_rate, flattening, atmosphere, source, parent, semi_major_axis, ephemeris, retrograde, zonal
+class BodyTransfer(kind: 'str', origin: 'Body', target: 'Body', central: 'Body', r1: 'float', r2: 'float', parking_altitude: 'float', capture_altitude: 'float | None', capture_ecc: 'float', v_inf_departure: 'float | None', v_inf_arrival: 'float | None', dv_departure: 'float', dv_arrival: 'float', tof: 'float', phase_angle: 'float | None', synodic_period: 'float | None', stay_time: 'float | None', departure_epoch: 'Epoch | None', departure_longitude: 'float | None', assumptions: 'tuple[str, ...]') -> None
+  BodyTransfer.a_transfer [property]
+  BodyTransfer.arrival_epoch [property]
+  BodyTransfer.c3 [property]
+  BodyTransfer.explain(self)
+  BodyTransfer.plot(self, ax=None)
+  BodyTransfer.propellant(self, mass, isp) -> 'float'
+  BodyTransfer.summary(self, mass=None, isp=None)
+  BodyTransfer.total_dv [property]
+  BodyTransfer fields: kind, origin, target, central, r1, r2, parking_altitude, capture_altitude, capture_ecc, v_inf_departure, v_inf_arrival, dv_departure, dv_arrival, tof, phase_angle, synodic_period, stay_time, departure_epoch, departure_longitude, assumptions
+class Burn(epoch: 'Epoch', r: 'np.ndarray', dv: 'np.ndarray', description: 'str') -> None
+  Burn.magnitude [property]
+  Burn fields: epoch, r, dv, description
+Callisto: Body
+Deimos: Body
+Dione: Body
+class Doppler(station: 'GroundStation', frequency: 'float', t: 'np.ndarray', range: 'np.ndarray', range_rate: 'np.ndarray', shift: 'np.ndarray', elevation: 'np.ndarray') -> None
+  Doppler.plot(self, ax=None, min_elevation=0.0)
+  Doppler fields: station, frequency, t, range, range_rate, shift, elevation
+Earth: Body
+class Eclipse(penumbra_start: 'Epoch', umbra_start: 'Epoch | None', umbra_end: 'Epoch | None', penumbra_end: 'Epoch', truncated: 'bool' = False) -> None
+  Eclipse.duration [property]
+  Eclipse.umbra_duration [property]
+  Eclipse fields: penumbra_start, umbra_start, umbra_end, penumbra_end, truncated
+class EclipseReport(eclipses: 'tuple[Eclipse, ...]', t: 'np.ndarray', illumination: 'np.ndarray', span: 'float', assumptions: 'tuple[str, ...]') -> None
+  EclipseReport.explain(self)
+  EclipseReport.plot(self, ax=None)
+  EclipseReport.shadow_fraction [property]
+  EclipseReport fields: eclipses, t, illumination, span, assumptions
+Enceladus: Body
+class Environment()
+class Epoch(tdb_seconds: 'float') -> None
+  Epoch.from_astropy(t) -> 'Epoch'
+  Epoch.from_iso(text: 'str') -> 'Epoch'
+  Epoch.from_jd(jd: 'float') -> 'Epoch'
+  Epoch.from_utc(text: 'str') -> 'Epoch'
+  Epoch.iso [property]
+  Epoch.jd [property]
+  Epoch.now() -> 'Epoch'
+  Epoch.parse(value) -> 'Epoch'
+  Epoch.to_astropy(self)
+  Epoch.utc [property]
+  Epoch fields: tdb_seconds
+Europa: Body
+class Flyby(body: 'Body', epoch: 'Epoch | None', v_inf_in: 'np.ndarray', v_inf_out: 'np.ndarray', r_p: 'float', dv: 'float', v_body: 'np.ndarray | None', min_altitude: 'float' = 0.0) -> None
+  Flyby.altitude [property]
+  Flyby.explain(self)
+  Flyby.feasible [property]
+  Flyby.speed_gain [property]
+  Flyby.turn_angle [property]
+  Flyby fields: body, epoch, v_inf_in, v_inf_out, r_p, dv, v_body, min_altitude
+class Footprint(central_angle: ForwardRef('float'), radius: ForwardRef('float'), slant_range: ForwardRef('float'), edge_elevation: ForwardRef('float'), nadir_angle: ForwardRef('float'), area: ForwardRef('float'))
+  Footprint fields: central_angle, radius, slant_range, edge_elevation, nadir_angle, area
+GEO: Orbit
+Ganymede: Body
+class GroundStation(name: 'str', lat: 'float', lon: 'float', alt: 'float' = 0.0, body: 'Body' = Body('Earth', R=6378.1 km)) -> None
+  GroundStation.create(name: 'str', lat, lon, alt=0.0) -> 'GroundStation'
+  GroundStation.r_ecef [property]
+  GroundStation fields: name, lat, lon, alt, body
+class GroundTrack(epoch: 'Epoch', t: 'np.ndarray', lat: 'np.ndarray', lon: 'np.ndarray', alt: 'np.ndarray', assumptions: 'tuple[str, ...]') -> None
+  GroundTrack.plot(self, ax=None, stations=())
+  GroundTrack fields: epoch, t, lat, lon, alt, assumptions
+ISS: Orbit
+Iapetus: Body
+Io: Body
+J2000: Epoch
+Jupiter: Body
+LEO: Orbit
+class Leg(origin: 'Body', target: 'Body', departure: 'Epoch', arrival: 'Epoch', r1: 'np.ndarray', v1: 'np.ndarray', r2: 'np.ndarray', v2: 'np.ndarray', v_origin: 'np.ndarray', v_target: 'np.ndarray', revolutions: 'int') -> None
+  Leg.tof [property]
+  Leg.transfer_angle [property]
+  Leg.v_inf_in [property]
+  Leg.v_inf_out [property]
+  Leg fields: origin, target, departure, arrival, r1, v1, r2, v2, v_origin, v_target, revolutions
+class Lifetime(initial: 'Orbit', method: 'str', days: 'float', reentry: 'Epoch | None', reentry_altitude: 'float', t: 'np.ndarray', altitude: 'np.ndarray', assumptions: 'tuple[str, ...]') -> None
+  Lifetime.explain(self)
+  Lifetime.plot(self, ax=None)
+  Lifetime.reentered [property]
+  Lifetime fields: initial, method, days, reentry, reentry_altitude, t, altitude, assumptions
+MOONS: tuple
+Mars: Body
+Mercury: Body
+Mimas: Body
+Miranda: Body
+class Mission(legs: 'tuple[Leg, ...]', flybys: 'tuple[Flyby, ...]', parking_altitude: 'float', capture_altitude: 'float | None', capture_ecc: 'float', dv_departure: 'float', dv_arrival: 'float', assumptions: 'tuple[str, ...]') -> None
+  Mission.arrival [property]
+  Mission.c3 [property]
+  Mission.departure [property]
+  Mission.dv_flybys [property]
+  Mission.explain(self)
+  Mission.feasible [property]
+  Mission.plot(self, ax=None)
+  Mission.propellant(self, mass, isp) -> 'float'
+  Mission.sequence [property]
+  Mission.summary(self, mass=None, isp=None)
+  Mission.tof [property]
+  Mission.total_dv [property]
+  Mission.v_inf_arrival [property]
+  Mission.v_inf_departure [property]
+  Mission fields: legs, flybys, parking_altitude, capture_altitude, capture_ecc, dv_departure, dv_arrival, assumptions
+Moon: Body
+class NRLMSISE00(f107=None, f107a=None, ap=None, *, activity: 'str' = 'moderate', historical: 'bool' = False, version: 'float' = 0)
+  NRLMSISE00.geodetic(self, r, t: 'float') -> 'tuple[float, float, float]'
+  NRLMSISE00.many(self, r, t: 'float')
+Neptune: Body
+Oberon: Body
+class Orbit(body: 'Body', r: 'np.ndarray', v: 'np.ndarray', epoch: 'Epoch' = Epoch('2000-01-01T12:00:00' TDB)) -> None
+  Orbit.M [property]
+  Orbit.a [property]
+  Orbit.after(self, duration=None, *, days=None, hours=None, minutes=None, model='twobody', **kwargs) -> 'Orbit'
+  Orbit.altitude [property]
+  Orbit.apoapsis_altitude [property]
+  Orbit.argp [property]
+  Orbit.argp_rate [property]
+  Orbit.beta_angle(self) -> 'float'
+  Orbit.circular(body: 'Body', altitude, *, inc=0.0, raan=0.0, arglat=0.0, epoch: 'Epoch' = Epoch('2000-01-01T12:00:00' TDB)) -> 'Orbit'
+  Orbit.deorbit(self, perigee_altitude='50 km')
+  Orbit.ecc [property]
+  Orbit.eclipse_fraction(self) -> 'float'
+  Orbit.elements [property]
+  Orbit.energy [property]
+  Orbit.explain(self)
+  Orbit.footprint(self, min_elevation=0.0, half_angle=None)
+  Orbit.from_apsides(body: 'Body', periapsis_altitude, apoapsis_altitude, *, inc=0.0, raan=0.0, argp=0.0, nu=0.0, epoch: 'Epoch' = Epoch('2000-01-01T12:00:00' TDB)) -> 'Orbit'
+  Orbit.from_elements(body: 'Body', *, a=None, p=None, ecc: 'float' = 0.0, inc=0.0, raan=0.0, argp=0.0, nu=0.0, epoch: 'Epoch' = Epoch('2000-01-01T12:00:00' TDB)) -> 'Orbit'
+  Orbit.from_frame(body: 'Body', r, v, epoch, frame: 'str' = 'gcrs') -> 'Orbit'
+  Orbit.from_vectors(body: 'Body', r, v, epoch: 'Epoch' = Epoch('2000-01-01T12:00:00' TDB)) -> 'Orbit'
+  Orbit.h [property]
+  Orbit.in_frame(self, frame: 'str' = 'gcrs') -> 'tuple[np.ndarray, np.ndarray]'
+  Orbit.inc [property]
+  Orbit.lifetime(self, *, area, mass, cd: 'float' = 2.2, density=None, method: 'str' = 'averaged', reentry_altitude=100000.0, max_days=3650.0)
+  Orbit.mean_motion [property]
+  Orbit.nu [property]
+  Orbit.p [property]
+  Orbit.periapsis_altitude [property]
+  Orbit.period [property]
+  Orbit.phasing(self, angle=None, *, target: 'Orbit | None' = None, revolutions: 'int' = 1)
+  Orbit.plot(self, ax=None)
+  Orbit.propagate(self, duration=None, *, days=None, hours=None, minutes=None, model='twobody', **kwargs)
+  Orbit.qty [property]
+  Orbit.r_apoapsis [property]
+  Orbit.r_periapsis [property]
+  Orbit.raan [property]
+  Orbit.raan_rate [property]
+  Orbit.relative_to(self, chief)
+  Orbit.rendezvous(self, target: 'Orbit', tof, *, wait=0.0, revolutions: 'int' = 0, branch: 'str' = 'left')
+  Orbit.summary(self) -> 'str'
+  Orbit.transfer_to(self, target: 'Orbit', method: 'str' = 'hohmann', *, rb=None, plane_split='optimal')
+  Orbit fields: body, r, v, epoch
+PLANETS: tuple
+class Pass(aos: 'Epoch', tca: 'Epoch', los: 'Epoch', max_elevation: 'float', aos_azimuth: 'float', los_azimuth: 'float', min_range: 'float', truncated: 'bool' = False) -> None
+  Pass.duration [property]
+  Pass fields: aos, tca, los, max_elevation, aos_azimuth, los_azimuth, min_range, truncated
+class PassReport(station: 'GroundStation', min_elevation: 'float', passes: 'tuple[Pass, ...]', start: 'Epoch', end: 'Epoch', assumptions: 'tuple[str, ...]') -> None
+  PassReport.explain(self)
+  PassReport.total_contact [property]
+  PassReport fields: station, min_elevation, passes, start, end, assumptions
+Phobos: Body
+class Porkchop(origin: 'Body', target: 'Body', departure_jd: 'np.ndarray', arrival_jd: 'np.ndarray', c3: 'np.ndarray', v_inf_arrival: 'np.ndarray', total_dv: 'np.ndarray | None', parking_altitude: 'float | None', capture_altitude: 'float | None') -> None
+  Porkchop.best(self, criterion: 'str' = 'c3') -> 'Mission'
+  Porkchop.plot(self, ax=None, max_c3=None)
+  Porkchop.tof [property]
+  Porkchop fields: origin, target, departure_jd, arrival_jd, c3, v_inf_arrival, total_dv, parking_altitude, capture_altitude
+class PropagationInfo(model: 'str', integrator: 'str', rtol: 'float | None', atol: 'float | None', assumptions: 'tuple[str, ...]', terminated: 'str | None' = None, nfev: 'int | None' = None) -> None
+  PropagationInfo fields: model, integrator, rtol, atol, assumptions, terminated, nfev
+class RelativeMotion(chief: 'str', t: 'np.ndarray', r: 'np.ndarray', v: 'np.ndarray') -> None
+  RelativeMotion.distance [property]
+  RelativeMotion.plot(self, ax=None)
+  RelativeMotion fields: chief, t, r, v
+Rhea: Body
+SSO: Orbit
+Saturn: Body
+Sun: Body
+class TLEOrbit(line1: 'str', line2: 'str', name: 'str' = '') -> None
+  TLEOrbit.M [property]
+  TLEOrbit.argp [property]
+  TLEOrbit.bstar [property]
+  TLEOrbit.ecc [property]
+  TLEOrbit.epoch [property]
+  TLEOrbit.explain(self)
+  TLEOrbit.from_text(text: 'str') -> 'TLEOrbit'
+  TLEOrbit.inc [property]
+  TLEOrbit.mean_motion [property]
+  TLEOrbit.period [property]
+  TLEOrbit.propagate(self, duration=None, *, days=None, hours=None, minutes=None, start: 'Epoch | None' = None, n_points: 'int | None' = None) -> 'Trajectory'
+  TLEOrbit.raan [property]
+  TLEOrbit.revs_per_day [property]
+  TLEOrbit.satnum [property]
+  TLEOrbit.state_at(self, epoch: 'Epoch') -> 'tuple[np.ndarray, np.ndarray]'
+  TLEOrbit.states(self, epochs) -> 'tuple[np.ndarray, np.ndarray, np.ndarray]'
+  TLEOrbit.to_orbit(self, epoch: 'Epoch | None' = None)
+  TLEOrbit fields: line1, line2, name, _sat
+Tethys: Body
+Titan: Body
+Titania: Body
+class Trajectory(body: 'Body', epoch: 'Epoch', t: 'np.ndarray', r: 'np.ndarray', v: 'np.ndarray', info: 'PropagationInfo') -> None
+  Trajectory.altitude [property]
+  Trajectory.beta_angle [property]
+  Trajectory.doppler(self, station, frequency)
+  Trajectory.eclipses(self)
+  Trajectory.elements [property]
+  Trajectory.epochs [property]
+  Trajectory.explain(self)
+  Trajectory.final [property]
+  Trajectory.ground_track(self)
+  Trajectory.in_frame(self, frame: 'str' = 'gcrs') -> 'tuple[np.ndarray, np.ndarray]'
+  Trajectory.orbit_at(self, i: 'int') -> 'Orbit'
+  Trajectory.passes(self, station, min_elevation=0.17453292519943295)
+  Trajectory.plot(self, ax=None, kind: 'str' = 'orbit')
+  Trajectory.relative_to(self, chief)
+  Trajectory.state_at(self, t) -> 'tuple[np.ndarray, np.ndarray]'
+  Trajectory.to_oem(self, path, *, frame: 'str' = 'GCRS', object_name: 'str' = 'SATELLITE', object_id: 'str' = 'UNKNOWN')
+  Trajectory fields: body, epoch, t, r, v, info
+class Transfer(kind: 'str', initial: 'Orbit', target: 'Orbit', burns: 'tuple[Burn, ...]', orbits: 'tuple[Orbit, ...]', plane_change: 'float', assumptions: 'tuple[str, ...]') -> None
+  Transfer.coast [property]
+  Transfer.explain(self)
+  Transfer.final [property]
+  Transfer.plot(self, ax=None)
+  Transfer.propellant(self, mass, isp) -> 'float'
+  Transfer.summary(self, mass=None, isp=None)
+  Transfer.tof [property]
+  Transfer.total_dv [property]
+  Transfer fields: kind, initial, target, burns, orbits, plane_change, assumptions
+Triton: Body
+Umbriel: Body
+Uranus: Body
+Venus: Body
+def body(name) -> 'Body'
+def cheatsheet() -> 'Summary'
+def flyby_mission(sequence, dates, parking_altitude, capture_altitude=None, *, capture_ecc: 'float' = 0.0, min_flyby_altitude=0.0, revolutions=0, branch: 'str' = 'left', prograde: 'bool' = True) -> 'Mission'
+def porkchop(origin: 'Body', target: 'Body', departure, arrival, *, step=432000.0, parking_altitude=None, capture_altitude=None, min_tof=None) -> 'Porkchop'
+def sun_synchronous(altitude, *, ecc: 'float' = 0.0, raan=0.0, epoch: 'Epoch' = Epoch('2000-01-01T12:00:00' TDB), body: 'Body' = Body('Earth', R=6378.1 km), raan_rate=None) -> 'Orbit'
+u: module
+def core.coverage.angular_radius(altitude: float, radius: float) -> float
+def core.coverage.footprint(altitude: float, radius: float, min_elevation: float = 0.0) -> tuple[float, float, float]
+def core.coverage.sensor_footprint(altitude: float, radius: float, half_angle: float) -> tuple[float, float, float]
+class core.elements.Elements(p: float, ecc: float, inc: float, raan: float, argp: float, nu: float)
+  core.elements.Elements.a [property]
+  core.elements.Elements fields: p, ecc, inc, raan, argp, nu
+def core.elements.coe_to_rv(p: float, ecc: float, inc: float, raan: float, argp: float, nu: float, mu: float) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.elements.elements_to_rv(el: urania.core.elements.Elements, mu: float) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.elements.rv_to_coe(r, v, mu: float) -> urania.core.elements.Elements
+def core.flyby.flyby_axis(v_inf_in, b_angle: float, pole=(0.0, 0.0, 1.0)) -> numpy.ndarray
+def core.flyby.outgoing_v_inf(v_inf_in, r_p: float, mu: float, b_angle: float = 0.0, pole=(0.0, 0.0, 1.0)) -> numpy.ndarray
+def core.flyby.periapsis_for_turn(v_inf_in: float, v_inf_out: float, delta: float, mu: float) -> float
+def core.flyby.powered_dv(v_inf_in: float, v_inf_out: float, r_p: float, mu: float) -> float
+def core.flyby.turn_angle(v_inf: float, r_p: float, mu: float) -> float
+def core.forces.accel_drag(r: numpy.ndarray, v: numpy.ndarray, rho: float, ballistic: float, rotation_rate: float) -> numpy.ndarray
+def core.forces.accel_j2(r: numpy.ndarray, mu: float, R: float, J2: float) -> numpy.ndarray
+def core.forces.accel_twobody(r: numpy.ndarray, mu: float) -> numpy.ndarray
+def core.forces.exponential_density(altitude: float) -> float
+def core.forces.geodetic_altitude(r: numpy.ndarray, R: float, f: float) -> float
+def core.frames.geodetic(r, R: float, f: float)
+def core.frames.geodetic_scalar(x: float, y: float, z: float, R: float, f: float) -> tuple[float, float, float]
+def core.frames.geodetic_to_ecef(lat: float, lon: float, h: float, R: float, f: float) -> numpy.ndarray
+def core.frames.gmst82(jd_ut1)
+def core.frames.look_angles(r_sat_ecef, r_site_ecef, lat: float, lon: float)
+def core.frames.rotate_z(r, theta)
+def core.interplanetary.arrival_phase_angle(r1: float, r2: float, mu: float) -> float
+def core.interplanetary.capture_dv(v_inf: float, r_p: float, mu: float, ecc: float = 0.0) -> float
+def core.interplanetary.departure_dv(v_inf: float, r_p: float, mu: float) -> float
+def core.interplanetary.hohmann_v_inf(r1: float, r2: float, mu: float) -> tuple[float, float, float]
+def core.interplanetary.hyperbola(v_inf: float, r_p: float, mu: float) -> tuple[float, float]
+def core.interplanetary.optimal_capture_periapsis(v_inf: float, mu: float, ecc: float = 0.0) -> float
+def core.interplanetary.phase_angle(r1: float, r2: float, mu: float) -> float
+def core.interplanetary.soi_radius(a: float, mu: float, mu_primary: float) -> float
+def core.interplanetary.stay_time(r1: float, r2: float, mu: float) -> float
+def core.interplanetary.synodic_period(T1: float, T2: float) -> float
+def core.interplanetary.wait_time(phase_now: float, phase_needed: float, n_origin: float, n_target: float) -> float
+def core.j2.argp_rate(a: float, ecc: float, inc: float, mu: float, R: float, J2: float) -> float
+def core.j2.raan_rate(a: float, ecc: float, inc: float, mu: float, R: float, J2: float) -> float
+def core.j2.sso_inclination(a: float, ecc: float, mu: float, R: float, J2: float, target_rate: float) -> float
+def core.kepler.eccentric_to_mean(E: float, e: float) -> float
+def core.kepler.eccentric_to_true(E: float, e: float) -> float
+def core.kepler.hyperbolic_to_mean(H: float, e: float) -> float
+def core.kepler.hyperbolic_to_true(H: float, e: float) -> float
+def core.kepler.mean_to_eccentric(M: float, e: float) -> float
+def core.kepler.mean_to_hyperbolic(M: float, e: float) -> float
+def core.kepler.mean_to_parabolic(M: float) -> float
+def core.kepler.mean_to_true(M: float, e: float) -> float
+def core.kepler.parabolic_to_mean(D: float) -> float
+def core.kepler.true_to_eccentric(nu: float, e: float) -> float
+def core.kepler.true_to_hyperbolic(nu: float, e: float) -> float
+def core.kepler.true_to_mean(nu: float, e: float) -> float
+def core.lambert.lambert(r1, r2, tof: float, mu: float, *, prograde: bool = True, revolutions: int = 0, branch: str = 'left', normal=(0.0, 0.0, 1.0)) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.lambert.min_tof(r1, r2, mu: float, revolutions: int, *, prograde: bool = True, normal=(0.0, 0.0, 1.0)) -> float
+def core.lambert.transfer_angle(r1, r2, prograde: bool = True, normal=(0.0, 0.0, 1.0)) -> float
+class core.lifetime.DecayResult(t: numpy.ndarray, a: numpy.ndarray, reached: bool)
+  core.lifetime.DecayResult fields: t, a, reached
+def core.lifetime.decay_history(a0: float, inc: float, mu: float, rotation_rate: float, ballistic: float, density: Callable[[numpy.ndarray, float], float], r_stop: float, t_max: float, t0: float = 0.0, correction: Optional[Callable[[float], float]] = None, raan0: float = 0.0, raan_rate: Optional[Callable[[float], float]] = None) -> urania.core.lifetime.DecayResult
+def core.lifetime.mean_decay_rate(a: float, inc: float, mu: float, rotation_rate: float, ballistic: float, density: Callable[[numpy.ndarray, float], float], t: float = 0.0, samples: int = 36, raan: float = 0.0) -> float
+def core.lifetime.sampled_decay_rate(r, v, mu: float, rotation_rate: float, ballistic: float, density: Callable[[numpy.ndarray, float], float], t: float = 0.0) -> float
+def core.maneuvers.bielliptic(r1: float, rb: float, r2: float, mu: float) -> tuple[float, float, float, float]
+def core.maneuvers.combined_dv(v1: float, v2: float, dtheta: float) -> float
+def core.maneuvers.hohmann(r1: float, r2: float, mu: float) -> tuple[float, float, float]
+def core.maneuvers.hohmann_plane_change(r1: float, r2: float, dtheta: float, mu: float, split: float) -> tuple[float, float, float]
+def core.maneuvers.optimal_plane_split(r1: float, r2: float, dtheta: float, mu: float) -> float
+def core.maneuvers.plane_change_dv(v: float, dtheta: float) -> float
+def core.maneuvers.rotate(vec, axis, angle: float) -> numpy.ndarray
+def core.planets.ecliptic_longitude(name: str, jd_tdb: float) -> float
+def core.planets.ecliptic_to_equatorial(vec) -> numpy.ndarray
+def core.planets.heliocentric_state(name: str, jd_tdb: float, mu_sun: float) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.planets.mean_elements(name: str, jd_tdb: float) -> tuple[float, float, float, float, float, float]
+class core.propagate.CowellResult(t: numpy.ndarray, r: numpy.ndarray, v: numpy.ndarray, terminated: bool, nfev: int)
+  core.propagate.CowellResult fields: t, r, v, terminated, nfev
+def core.propagate.cowell(r0, v0, duration: float, accel: Callable[[float, numpy.ndarray, numpy.ndarray], numpy.ndarray], *, t_eval: Optional[Sequence[float]] = None, events: Sequence[Callable] = (), method: str = 'DOP853', rtol: float = 1e-12, atol: float = 1e-08) -> urania.core.propagate.CowellResult
+def core.propagate.hermite(t: float, t0: float, t1: float, r0, v0, r1, v1) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.propagate.kepler_propagate(r0, v0, dt: float, mu: float) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.propagate.kepler_states(r0, v0, dts: Sequence[float], mu: float) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.propagate.stumpff(psi: float) -> tuple[float, float]
+def core.propulsion.delta_v(isp: float, m0: float, mf: float) -> float
+def core.propulsion.exhaust_velocity(isp: float) -> float
+def core.propulsion.mass_ratio(dv: float, isp: float) -> float
+def core.propulsion.propellant_mass(dv: float, isp: float, m0: float) -> float
+def core.relative.cw_matrices(n: float, t: float) -> tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray]
+def core.relative.cw_propagate(rho0, rho_dot0, n: float, t) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.relative.cw_rendezvous(rho0, rho_dot0, tof: float, n: float, rho_f=(0.0, 0.0, 0.0)) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.relative.from_lvlh(r_chief, v_chief, rho, rho_dot) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.relative.lvlh_basis(r, v) -> numpy.ndarray
+def core.relative.to_lvlh(r_chief, v_chief, r, v) -> tuple[numpy.ndarray, numpy.ndarray]
+def core.sun.beta_angle(r, v, r_sun) -> numpy.ndarray
+def core.sun.disk_angles(r_sat, r_sun, R_body: float, R_sun: float = 695700000.0)
+def core.sun.eclipse_fraction(beta: float, radius: float, body_radius: float) -> float
+def core.sun.illumination(r_sat, r_sun, R_body: float, R_sun: float = 695700000.0) -> float
+def core.sun.penumbra_function(r_sat, r_sun, R_body: float, R_sun: float = 695700000.0) -> float
+def core.sun.sun_position(jd_tdb)
+def core.sun.umbra_function(r_sat, r_sun, R_body: float, R_sun: float = 695700000.0) -> float
+def core.thirdbody.accel_srp(r: numpy.ndarray, r_sun: numpy.ndarray, cr_area_mass: float, body_radius: float) -> numpy.ndarray
+def core.thirdbody.accel_third_body(r: numpy.ndarray, r_body: numpy.ndarray, mu_body: float) -> numpy.ndarray
+def core.thirdbody.accel_zonal(r: numpy.ndarray, mu: float, R: float, J) -> numpy.ndarray
+def core.thirdbody.moon_position(jd_tdb)
+def core.thirdbody.solar_flux_scale(r_sun: numpy.ndarray) -> float
+def core.twobody.apsides_to_ae(r_periapsis: float, r_apoapsis: float) -> tuple[float, float]
+def core.twobody.circular_velocity(r: float, mu: float) -> float
+def core.twobody.escape_velocity(r: float, mu: float) -> float
+def core.twobody.mean_motion(a: float, mu: float) -> float
+def core.twobody.period(a: float, mu: float) -> float
+def core.twobody.semi_major_axis(r, v, mu: float)
+def core.twobody.specific_energy(a: float, mu: float) -> float
+def core.twobody.synchronous_radius(mu: float, rotation_rate: float) -> float
+def core.twobody.vis_viva(r: float, a: float, mu: float) -> float

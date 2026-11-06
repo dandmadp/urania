@@ -1,0 +1,77 @@
+site_name: urania
+site_description: An astrodynamics library that computes, shows and explains.
+site_url: https://dandmadp.github.io/urania/
+repo_url: https://github.com/dandmadp/urania
+repo_name: dandmadp/urania
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Tutorials:
+      - 1. Orbits and Kepler's equation: tutorials/01-orbits.md
+      - 2. Propagation and perturbations: tutorials/02-propagation.md
+      - 3. Orbital maneuvers: tutorials/03-maneuvers.md
+      - 4. Lambert's problem and rendezvous: tutorials/04-lambert-rendezvous.md
+      - 5. Interplanetary trajectories: tutorials/05-interplanetary.md
+      - 6. CubeSat operations: tutorials/06-cubesat-operations.md
+  - Guides:
+      - Units, dates and time scales: guide/units-and-time.md
+      - Force models: guide/force-models.md
+      - Frames and data exchange: guide/frames.md
+  - Validation: validation.md
+  - API reference: api.md
+  - API stability: stability.md
+  - Design decisions: DECISIONS.md
+  - Contributing: contributing.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            docstring_options:
+              # parameters take values with units (strings or Quantities) and are deliberately unannotated
+              warn_missing_types: false
+              warn_unknown_params: false
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            members_order: source
+            merge_init_into_class: true
+            filters: ["!^_"]
+            heading_level: 3
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - tables
+  - toc:
+      permalink: true
+
+exclude_docs: |
+  make_figures.py

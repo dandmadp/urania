@@ -17,6 +17,12 @@
   "itrs", "teme"), validated with Vallado example 3-15; CCSDS OEM export (`Trajectory.to_oem`) and a reader
   (`urania.coordinates.read_oem`).
 
+- Documentation site (MkDocs): getting started, six tutorials following Curtis's chapters, guides (units and
+  time, force models, frames), validation, API reference, API stability policy, contributing guide. Every code
+  block runs in the test suite.
+- API stability: the public API is recorded in `tests/fixtures/public_api.txt` and checked by a test;
+  `UraniaDeprecationWarning` and helpers for deprecations.
+
 ### Changed
 - Lifetime estimates keep the orbit's node and its J2 precession, so local-time effects of the atmosphere
   (the day-side bulge) count; density models may offer `many(r, t)` for vectorized evaluation.

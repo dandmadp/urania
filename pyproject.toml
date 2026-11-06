@@ -35,15 +35,17 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/dandmadp/urania"
+Documentation = "https://dandmadp.github.io/urania/"
 Source = "https://github.com/dandmadp/urania"
 Issues = "https://github.com/dandmadp/urania/issues"
 
 [project.optional-dependencies]
 msis = ["pymsis>=0.10"]
+docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.26", "pymsis>=0.10"]
 dev = ["pytest>=7", "skyfield>=1.45", "pymsis>=0.10"]
 
 [tool.hatch.build.targets.sdist]
-exclude = ["CLAUDE.md", ".gitattributes"]
+exclude = ["CLAUDE.md", ".gitattributes", "docs/images", "site"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/urania"]

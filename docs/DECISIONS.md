@@ -332,3 +332,14 @@
   surface); a longer user setting is respected.
 - CCSDS OEM (KVN) is the common ephemeris format of STK, GMAT, Orekit and ground-station tools, so it is the one
   export format; GCRF is the default frame, UTC the time system, km and km/s the units the standard prescribes.
+
+## D45. Documentation site and a frozen public API (0.1)
+- MkDocs with Material and mkdocstrings: Markdown pages next to the code, API reference generated from the
+  docstrings (Google style), deployed to GitHub Pages by a workflow. Material announced its end of life for May
+  2027; its successor (Zensical) reads the same mkdocs.yml, so the content will carry over.
+- Tutorials follow Curtis's chapters and reproduce his examples, because the audience learns from that book.
+  Every python block of the README and the docs runs in the test suite (a page runs like a notebook), with
+  urania's own warnings treated as errors, so examples cannot go stale or teach a warning.
+- The public API (top-level names, their methods and fields, the core functions) is written with signatures
+  to tests/fixtures/public_api.txt; any change fails a test until the snapshot is regenerated on purpose. Removals
+  go through UraniaDeprecationWarning (a FutureWarning, visible to end users) for at least one minor release.

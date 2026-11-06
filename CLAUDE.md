@@ -10,6 +10,9 @@ Windows. Call the virtual environment's Python directly.
 .venv/Scripts/python -m pytest -q                         # all tests
 .venv/Scripts/python -m pytest tests/core/test_kepler.py  # one file
 .venv/Scripts/python -m pip install -e ".[dev]"           # reinstall after dependency changes
+NO_MKDOCS_2_WARNING=1 .venv/Scripts/python -m mkdocs build --strict   # docs site (needs ".[docs]")
+URANIA_UPDATE_API=1 .venv/Scripts/python -m pytest tests/test_api_stability.py   # after an intended API change
+~/.local/bin/uv.exe run --isolated --python 3.10 --resolution lowest-direct --extra dev python -m pytest -q   # oldest deps
 ```
 
 ## Architecture (summary of SPEC.md section 2)
@@ -62,4 +65,6 @@ v0.1 (SPEC.md section 8):
 - [x] Lambert (`core/lambert.py`), porkchop and gravity assists (`missions.py`, `core/flyby.py`) — D37, D38
 - [x] Satellite operations: rendezvous, phasing, deorbit, relative motion, Doppler, footprint, beta angle, propellant (`satellite.py`) — D39
 - [x] Beginner conveniences: strings for units/dates/bodies, UnitWarning, summary(), cheatsheet() — D40
+- [x] B: zonal/Sun/Moon/SRP forces (D42), NRLMSISE-00 (D43), GCRS/ITRS frames and OEM (D44) — all GMAT/Vallado validated
+- [x] A: docs site (mkdocs, `docs/`, figures via `docs/make_figures.py`), API snapshot `tests/fixtures/public_api.txt`, stability policy — D45
 - Validation references: Skyfield (dev dependency) for ground tracks and passes; full propagation for lifetime
