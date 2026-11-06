@@ -280,6 +280,25 @@ deployed = ur.Orbit(ur.Earth, orbit.r, orbit.v + [0.0, 0.0, 0.5], orbit.epoch)
 deployed.propagate(orbit.period * 3).relative_to(orbit).plot()
 ```
 
+## Frames and data exchange
+
+urania's inertial frame is TEME (true equator, mean equinox), the frame of TLEs. Convert to GCRS (≈ J2000/EME2000,
+GMAT's EarthMJ2000Eq) or ITRS (Earth-fixed) with astropy, and export ephemerides as CCSDS OEM files for STK, GMAT,
+Orekit or ground-station software:
+
+```python
+import astropy.units as u
+import urania as ur
+
+orbit = ur.Orbit.from_frame("Earth", [7000, 0, 0] * u.km, [0, 6.5, 3.5] * u.km / u.s, "2026-11-01", "gcrs")
+r_gcrs, v_gcrs = orbit.in_frame("gcrs")
+r_itrs, v_itrs = orbit.in_frame("itrs")
+
+tr = orbit.propagate(hours=6, model="j2")
+positions, velocities = tr.in_frame("gcrs")
+# tr.to_oem("cubesat.oem", object_name="CUBESAT-1")   # CCSDS OEM, REF_FRAME = GCRF, UTC
+```
+
 ## TLE
 
 ```python
@@ -324,6 +343,7 @@ TLE elements are SGP4-specific mean elements, so they are kept separate from `Or
 | Sun and Moon gravity | NASA GMAT R2026a (DE405), 20,200 km, 7 days | 18.7 m out of a 7.9 km effect (analytic Moon) |
 | Solar radiation pressure | NASA GMAT R2026a, GEO, 7 days | 0.49 m out of a 3.2 km effect |
 | Moon position | Vallado example 5-3 | to the printed 1 m |
+| Frame conversion TEME → GCRF / ITRF | Vallado example 3-15 | 3 mm (GCRF), 0.3 m (ITRF, different EOP data) |
 | Planet positions (Standish) | JPL DE421 via Skyfield, 1900 to 2050 | within 0.5' (inner planets), 1.3' (Mars), 12' (Saturn) |
 
 SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sanity check rather than precise validation. Precise validation comes from the GMAT comparison ([validation/gmat](https://github.com/dandmadp/urania/blob/main/validation/gmat), [tests/test_gmat.py](https://github.com/dandmadp/urania/blob/main/tests/test_gmat.py)).
@@ -342,9 +362,9 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
   unpowered flybys); deep-space maneuvers and trajectory optimization are not included. Moon positions are not
   modeled, so dated transfers exist only between planets.
 - Time: TDB internally. UTC goes through astropy: `Epoch.from_utc()`, `epoch.utc`, `Epoch.now()`.
-- Frames: the inertial frame's z axis is Earth's spin axis (true equator of date, like TEME); precession and nutation
-  are not modeled, so give state vectors in that frame. Earth-fixed coordinates use GMST with UT1 ≈ UTC and no polar
-  motion (longitudes within about 0.4 km). TLEs use TEME as is.
+- Frames: computations use TEME (true equator, mean equinox of date); `Orbit.from_frame` / `in_frame` convert to and
+  from GCRS and ITRS through astropy. Ground tracks and passes use GMST with UT1 ≈ UTC and no polar motion
+  (longitudes within about 0.4 km). TLEs use TEME as is.
 - Plots: 2D only.
 
 ## Examples

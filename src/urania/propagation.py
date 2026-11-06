@@ -190,6 +190,18 @@ class Trajectory:
 
         return eclipses(self)
 
+    def in_frame(self, frame: str = "gcrs") -> tuple[np.ndarray, np.ndarray]:
+        """Positions [m] and velocities [m/s] (N×3) in "gcrs" (≈ J2000), "itrs" (Earth-fixed) or "teme"."""
+        from .coordinates import trajectory_in
+
+        return trajectory_in(self, frame)
+
+    def to_oem(self, path, *, frame: str = "GCRS", object_name: str = "SATELLITE", object_id: str = "UNKNOWN"):
+        """Write a CCSDS Orbit Ephemeris Message (KVN) for STK, GMAT, Orekit or ground software; returns the path."""
+        from .coordinates import write_oem
+
+        return write_oem(self, path, frame=frame, object_name=object_name, object_id=object_id)
+
     def relative_to(self, chief):
         """Motion relative to a chief Orbit or Trajectory in its LVLH frame, at every sample."""
         from .satellite import relative_motion

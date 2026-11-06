@@ -13,7 +13,7 @@ pymsis = pytest.importorskip("pymsis")
 def test_matches_pymsis_at_independent_coordinates():
     """Density equals pymsis evaluated at the geodetic point computed independently by astropy (ITRS)."""
     import astropy.units as u
-    from astropy.coordinates import GCRS, ITRS, CartesianRepresentation
+    from astropy.coordinates import ITRS, CartesianRepresentation
     from pymsis import msis
 
     model = ur.NRLMSISE00(140, 135, 10)

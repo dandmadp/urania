@@ -2,12 +2,20 @@
 
 ## Unreleased
 
+### Fixed
+- astropy's "dubious year" warning for dates past the leap-second table (lifetimes, future epochs) is silenced;
+  the last known offset is the best available prediction.
+
 ### Added
 - Force terms "zonal" (J2-J6; Earth's EGM-08 values in `Earth.zonal`), "sun", "moon" (analytic Moon position,
   Vallado algorithm 31) and "srp" (solar radiation pressure with Earth's conical shadow, `cr`), and fidelity
   levels 3 and 4. Validated against NASA GMAT.
 - `NRLMSISE00` atmosphere (optional dependency: `pip install urania[msis]`) with F10.7/Ap values, presets
   ("low", "moderate", "high") or observed space weather; validated against GMAT's NRLMSISE00.
+
+- Frame conversions through astropy: `Orbit.from_frame`, `Orbit.in_frame`, `Trajectory.in_frame` ("gcrs",
+  "itrs", "teme"), validated with Vallado example 3-15; CCSDS OEM export (`Trajectory.to_oem`) and a reader
+  (`urania.coordinates.read_oem`).
 
 ### Changed
 - Lifetime estimates keep the orbit's node and its J2 precession, so local-time effects of the atmosphere

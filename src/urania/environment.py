@@ -13,7 +13,6 @@ r is the inertial position [m] (numpy array), t is TDB seconds since J2000.
 from __future__ import annotations
 
 import math
-import warnings
 from abc import ABC, abstractmethod
 
 import astropy.units as u
@@ -143,9 +142,9 @@ class NRLMSISE00(Environment):
             from .time import Epoch
 
             e = Epoch(t)
-            with warnings.catch_warnings():
-                # Future dates lie beyond the leap-second table ("dubious year"); the last offset is used
-                warnings.simplefilter("ignore")
+            from .time import _future_leap_seconds_ok
+
+            with _future_leap_seconds_ok():
                 utc = e.to_astropy().utc
             self._offset = (e.jd - (utc.jd1 + utc.jd2)) * 86400.0
             self._offset_epoch = t

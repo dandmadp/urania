@@ -126,6 +126,16 @@ class Orbit:
         return cls(body, r_si, units.to_si(v, units.VELOCITY), epoch)
 
     @classmethod
+    def from_frame(cls, body: Body, r, v, epoch, frame: str = "gcrs") -> Orbit:
+        """From a state vector in a standard frame: "gcrs" (≈ J2000/EME2000), "itrs" (Earth-fixed) or "teme".
+
+        Example: ``Orbit.from_frame("Earth", [7000, 0, 0] * u.km, [0, 7.5, 0] * u.km / u.s, "2026-11-01", "gcrs")``
+        """
+        from .coordinates import orbit_from
+
+        return orbit_from(body, r, v, epoch, frame)
+
+    @classmethod
     def from_elements(cls, body: Body, *, a=None, p=None, ecc: float = 0.0,
                       inc=0.0, raan=0.0, argp=0.0, nu=0.0,
                       epoch: Epoch = J2000) -> Orbit:
@@ -399,6 +409,14 @@ class Orbit:
         from .maneuvers import deorbit
 
         return deorbit(self, perigee_altitude)
+
+    # ---------------------------------------------------------- frames
+
+    def in_frame(self, frame: str = "gcrs") -> tuple[np.ndarray, np.ndarray]:
+        """Position [m] and velocity [m/s] in "gcrs" (≈ J2000/EME2000), "itrs" (Earth-fixed) or "teme"."""
+        from .coordinates import orbit_in
+
+        return orbit_in(self, frame)
 
     # ---------------------------------------------------------- operations
 

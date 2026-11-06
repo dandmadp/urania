@@ -322,3 +322,13 @@
 - The averaged lifetime now carries the node and its J2 drift as a second state, because the day-side bulge
   makes a dawn-dusk orbit last longer than a noon-midnight one (8% at 450 km); densities along the orbit are
   evaluated in one vectorized call when the model offers `many(r, t)`.
+
+## D44. Standard frames through astropy; OEM for data exchange (0.1)
+- urania keeps computing in TEME (D31), so nothing that already works changes. Conversions to GCRS and ITRS go
+  through astropy, which implements IAU 2006/2000A and the IERS Earth-orientation data; Vallado's example 3-15 is
+  reproduced to 3 mm in GCRF.
+- astropy re-downloads the IERS-A file in every new process once its bundled copy is 30 days old (15 s here).
+  Conversions accept data up to a year old instead (a UT1 prediction error of tens of ms, meters at the
+  surface); a longer user setting is respected.
+- CCSDS OEM (KVN) is the common ephemeris format of STK, GMAT, Orekit and ground-station tools, so it is the one
+  export format; GCRF is the default frame, UTC the time system, km and km/s the units the standard prescribes.

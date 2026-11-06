@@ -11,6 +11,8 @@ date difference gives exact elapsed seconds.
 from __future__ import annotations
 
 import re
+import warnings
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -26,6 +28,15 @@ _DT_J2000 = datetime(2000, 1, 1, 12, 0, 0)
 _FRACTION = re.compile(r"(\d{2}:\d{2}:\d{2})\.(\d+)")
 _TIME_ZONE = re.compile(r"(?:[zZ]|[+-]\d{2}:?\d{2})$")
 _OFFSET = re.compile(r"(?<=\d)([+-]\d{2}):?(\d{2})$")
+
+
+@contextmanager
+def _future_leap_seconds_ok():
+    """Silence astropy's "dubious year" warning: dates past the leap-second table use the last known offset,
+    which is the best available prediction (future leap seconds are not announced yet)."""
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*dubious year.*")
+        yield
 
 
 def _parse_iso(text: str) -> datetime:
@@ -93,7 +104,8 @@ class Epoch:
             if value.tzinfo is not None:
                 from astropy.time import Time
 
-                return cls.from_astropy(Time(value.astimezone(timezone.utc).replace(tzinfo=None), scale="utc"))
+                with _future_leap_seconds_ok():
+                    return cls.from_astropy(Time(value.astimezone(timezone.utc).replace(tzinfo=None), scale="utc"))
             return cls((value - _DT_J2000).total_seconds())
         if hasattr(value, "tdb") and hasattr(value, "jd1"):
             return cls.from_astropy(value)
@@ -111,7 +123,8 @@ class Epoch:
         text = text.strip()
         if text.endswith(("Z", "z")):
             text = text[:-1]
-        return cls.from_astropy(Time(text, scale="utc"))
+        with _future_leap_seconds_ok():
+            return cls.from_astropy(Time(text, scale="utc"))
 
     @classmethod
     def now(cls) -> Epoch:
@@ -146,9 +159,10 @@ class Epoch:
     @property
     def utc(self) -> str:
         """ISO 8601 string in UTC (microsecond resolution, like `iso`), converted by astropy."""
-        t = self.to_astropy().utc
-        t.precision = 6
-        return t.isot
+        with _future_leap_seconds_ok():
+            t = self.to_astropy().utc
+            t.precision = 6
+            return t.isot
 
     def to_astropy(self):
         """Convert to astropy Time(scale='tdb')."""
@@ -186,5 +200,6 @@ def utc_jd(tdb_seconds) -> np.ndarray:
     from astropy.time import Time
 
     s = np.atleast_1d(np.asarray(tdb_seconds, dtype=float))
-    utc = Time(np.full(s.shape, JD_J2000), s / SECONDS_PER_DAY, format="jd", scale="tdb").utc
+    with _future_leap_seconds_ok():
+        utc = Time(np.full(s.shape, JD_J2000), s / SECONDS_PER_DAY, format="jd", scale="tdb").utc
     return utc.jd1 + utc.jd2
