@@ -17,10 +17,13 @@ def test_parse_model():
     assert parse_model("j2") == {"twobody", "j2"}
     assert parse_model("J2 + drag") == {"twobody", "j2", "drag"}
     assert parse_model(2) == {"twobody", "j2", "drag"}
+    assert parse_model("j2+moon") == {"twobody", "j2", "moon"}
+    assert parse_model(3) == {"twobody", "j2", "drag", "sun", "moon"}
+    assert parse_model("zonal+j2+srp") == {"twobody", "zonal", "srp"}      # zonal includes J2
     with pytest.raises(NotImplementedError):
-        parse_model("j2+moon")
+        parse_model("j2+tesseral")
     with pytest.raises(NotImplementedError):
-        parse_model(3)
+        parse_model(5)
     with pytest.raises(ValueError):
         parse_model("j3")
 
@@ -235,3 +238,35 @@ def test_j2_needs_nonzero_j2():
 
     with pytest.raises(ValueError, match="J2 of Sun is zero"):
         Orbit.circular(Sun, 1e9).propagate(days=1, model="j2")
+
+
+def test_high_fidelity_terms():
+    """Fidelity 3 and 4 run; each term changes the result by a plausible amount at GEO and in LEO."""
+    import astropy.units as u
+
+    geo = Orbit.circular(Earth, 35786 * u.km, inc=0.5 * u.deg)
+    base = geo.after(days=3, model="twobody").r
+    sun_moon = geo.after(days=3, model="sun+moon").r
+    srp = geo.after(days=3, model="srp", area=20, mass=1000, cr=1.3).r
+    assert 1e3 < np.linalg.norm(sun_moon - base) < 1e5        # km-level luni-solar drift in 3 days
+    assert 10 < np.linalg.norm(srp - base) < 1e4
+    leo = Orbit.circular(Earth, 600 * u.km, inc=63 * u.deg)
+    j2 = leo.after(days=1, model="j2").r
+    zonal = leo.after(days=1, model="zonal").r
+    assert 10 < np.linalg.norm(zonal - j2) < 2e4                # J3-J6 are about 1/1000 of J2
+    tr = leo.propagate(hours=3, model=4, area=0.03, mass=4, cr=1.5)
+    assert tr.info.model == "twobody+zonal+drag+sun+moon+srp"
+    assert any("J2-J6" in a for a in tr.info.assumptions)
+
+
+def test_high_fidelity_errors():
+    import astropy.units as u
+
+    with pytest.raises(ValueError, match="geocentric"):
+        Orbit.circular(Mars, 300 * u.km).propagate(hours=1, model="j2+sun")
+    with pytest.raises(ValueError, match="area and mass"):
+        ISS.propagate(hours=1, model="srp")
+    with pytest.raises(ValueError, match="cr"):
+        ISS.propagate(hours=1, model="srp", area=1, mass=1, cr=0)
+    with pytest.warns(UserWarning, match="no drag term"):
+        ISS.propagate(hours=1, model="srp", area=1, mass=1, density=1e-12)

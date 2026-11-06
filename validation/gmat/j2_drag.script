@@ -19,6 +19,7 @@ GMAT Sat.VZ = 6.013123128839613;
 GMAT Sat.DryMass = 100.0;
 GMAT Sat.Cd = 2.2;
 GMAT Sat.DragArea = 1.0;
+GMAT Sat.Cr = 1.3;
 GMAT Sat.SRPArea = 0;
 
 Create ForceModel FM;

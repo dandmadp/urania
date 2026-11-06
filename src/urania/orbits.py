@@ -314,9 +314,10 @@ class Orbit:
         Args:
             duration: propagation time (seconds, a time Quantity or a string such as "90 min"),
                 or one of days, hours, minutes (plain numbers in that unit).
-            model: "twobody", "j2", "j2+drag" or fidelity 0 to 2
-            **kwargs: cd, area, mass, density (constant, function or Environment),
-                method, rtol, atol, n_points. See `propagation.propagate`.
+            model: terms joined by "+": "twobody", "j2", "zonal", "drag", "sun", "moon", "srp"
+                (e.g. "zonal+drag+sun+moon+srp"), or fidelity 0 to 4
+            **kwargs: cd, area, mass, density (constant, function or Environment), cr (radiation
+                pressure coefficient), method, rtol, atol, n_points. See `propagation.propagate`.
 
         Example: ``ISS.propagate(days=30, model="j2+drag", area=1500, mass=420000).final``
         """

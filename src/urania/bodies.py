@@ -37,6 +37,7 @@ class Body:
     semi_major_axis: float = field(default=0.0, compare=False)  # mean semi-major axis around parent [m]
     ephemeris: str | None = field(default=None, compare=False)  # key into core.planets.STANDISH
     retrograde: bool = field(default=False, compare=False)      # orbits its parent clockwise (Triton)
+    zonal: tuple = field(default=(), compare=False)             # zonal harmonics (J2, J3, ...) [-]
 
     def __post_init__(self):
         if not self.mu > 0.0:
@@ -147,7 +148,8 @@ Earth = Body(
     rotation_rate=7.292115e-5,
     flattening=1 / 298.257223563,
     atmosphere=ExponentialAtmosphere(radius=6378137.0, flattening=1 / 298.257223563),
-    source="μ, R, f: WGS 84; J2: EGM-08 (Vallado table D-1); orbit: Earth-Moon barycenter (Standish)",
+    source="μ, R, f: WGS 84; J2-J6: EGM-08 (Vallado table D-1); orbit: Earth-Moon barycenter (Standish)",
+    zonal=(1.08262668355e-3, -2.53265648533e-6, -1.61962159137e-6, -2.27296082869e-7, 5.40681239107e-7),
     parent=Sun,
     semi_major_axis=STANDISH["Earth"][0][0] * AU,
     ephemeris="Earth",

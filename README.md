@@ -99,7 +99,17 @@ Presets: bodies `Sun`, `Earth`, `Moon`, `Mars`; orbits `LEO` (500 km), `ISS` (42
 
 ## Propagation
 
-Choose the fidelity: `"twobody"` (0) → `"j2"` (1) → `"j2+drag"` (2). The original object is unchanged; a new `Trajectory` is returned.
+Choose the forces by joining terms with "+", or a fidelity level:
+
+| level | model | adds |
+|---|---|---|
+| 0 | `"twobody"` | point-mass gravity |
+| 1 | `"j2"` | Earth's oblateness |
+| 2 | `"j2+drag"` | atmospheric drag |
+| 3 | `"j2+drag+sun+moon"` | Sun and Moon gravity |
+| 4 | `"zonal+drag+sun+moon+srp"` | zonal harmonics J2-J6, solar radiation pressure (`cr`, `area`, `mass`) |
+
+The original object is unchanged; a new `Trajectory` is returned.
 
 ```python
 import astropy.units as u
@@ -115,6 +125,7 @@ print(tr.elements["raan"][-1])     # osculating elements at every sample, as arr
 tr.plot(kind="altitude")           # altitude with an orbit-averaged line
 
 later = start.after(days=1, model="j2")   # just the orbit: shorthand for propagate(...).final
+full = start.propagate(days=1, model=4, cr=1.5, **cubesat)   # every force term
 ```
 
 Passing `area`, `mass` or `density` without a drag term in `model` gives a warning, since drag would otherwise be left out silently.
@@ -295,6 +306,10 @@ TLE elements are SGP4-specific mean elements, so they are kept separate from `Or
 | Gravity assist | Mariner 10 Venus flyby (1974) | flyby altitude 5,739 km vs 5,768 km flown, nearly unpowered |
 | Relative motion | two-body propagation | Clohessy-Wiltshire within second-order terms; CW and Lambert rendezvous agree within 2% |
 | Doppler and eclipses from β | finite differences; conical eclipse search | range rate within 0.5 m/s; shadow fraction within 1% |
+| Zonal harmonics J2-J6 | NASA GMAT R2026a, 600 km, 63°, 7 days | at most 2.5 m (true pole) |
+| Sun and Moon gravity | NASA GMAT R2026a (DE405), 20,200 km, 7 days | 18.7 m out of a 7.9 km effect (analytic Moon) |
+| Solar radiation pressure | NASA GMAT R2026a, GEO, 7 days | 0.49 m out of a 3.2 km effect |
+| Moon position | Vallado example 5-3 | to the printed 1 m |
 | Planet positions (Standish) | JPL DE421 via Skyfield, 1900 to 2050 | within 0.5' (inner planets), 1.3' (Mars), 12' (Saturn) |
 
 SGP4 itself is accurate to about 1 km near epoch, so the SGP4 comparison is a sanity check rather than precise validation. Precise validation comes from the GMAT comparison ([validation/gmat](https://github.com/dandmadp/urania/blob/main/validation/gmat), [tests/test_gmat.py](https://github.com/dandmadp/urania/blob/main/tests/test_gmat.py)).
@@ -303,7 +318,8 @@ GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the 
 
 ## Limitations
 
-- Perturbations: J2 and atmospheric drag. Lunar/solar perturbations, solar radiation pressure and higher-order gravity come later.
+- Perturbations: zonal harmonics (J2-J6), drag, Sun and Moon point masses (analytic positions), solar radiation
+  pressure on a sphere. Tesseral harmonics, tides and relativity are not modeled.
 - Atmosphere: Vallado's exponential model (mean solar activity), with height above the reference ellipsoid. Real density varies several-fold with solar activity.
 - Maneuvers: impulsive burns. Hohmann, bi-elliptic and phasing maneuvers need circular orbits; Lambert rendezvous
   and deorbit work with any elliptic orbit. Body-to-body transfers

@@ -10,6 +10,13 @@ Measured results (urania vs GMAT, maximum position difference over the run):
 | twobody, 1 day   | 0.009 m             | -               |
 | j2, 7 days       | 144 m               | 3.30 m          |
 | j2_drag, 3 days  | 73 m                | 3.32 m          |
+| zonal, 7 days    | 117 m               | 2.47 m          |
+| sun_moon, 7 days | 18.7 m              | -               |
+| srp, 7 days      | 0.49 m              | -               |
+
+zonal: J2-J6 (EGM96), 600 km, 63°. sun_moon: Sun and Moon point masses at 20,200 km (GPS altitude); GMAT uses
+the DE405 ephemeris and urania analytic positions (Moon within ~0.3°), which is most of the 18.7 m out of a
+7.9 km perturbation. srp: radiation pressure at GEO, C_R·A/m = 0.026 m²/kg (0.49 m out of 3.2 km).
 
 GMAT evaluates J2 and the atmosphere about Earth's true spin axis, which at the J2000 epoch is
 tilted 7.69" from the MJ2000Eq z axis (nutation). urania uses the frame's z axis as the spin axis.
@@ -33,13 +40,14 @@ _spec = importlib.util.spec_from_file_location(
 gmat = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(gmat)
 
-MODELS = {"twobody": "twobody", "j2": "j2", "j2_drag": "j2+drag"}
+MODELS = {"twobody": "twobody", "j2": "j2", "j2_drag": "j2+drag", "zonal": "zonal", "sun_moon": "sun+moon",
+          "srp": "srp"}
 
 # Maximum allowed position difference [m] in the EarthMJ2000Eq frame (measured value + margin)
-LIMITS = {"twobody": 0.05, "j2": 200.0, "j2_drag": 150.0}
+LIMITS = {"twobody": 0.05, "j2": 200.0, "j2_drag": 150.0, "zonal": 150.0, "sun_moon": 30.0, "srp": 1.0}
 
 # Maximum allowed position difference [m] once both use the true spin axis
-TRUE_POLE_LIMITS = {"j2": 5.0, "j2_drag": 5.0}
+TRUE_POLE_LIMITS = {"j2": 5.0, "j2_drag": 5.0, "zonal": 4.0}
 
 
 def load_gmat(name: str) -> np.ndarray:
@@ -80,7 +88,7 @@ def position_errors(name: str, rotation: np.ndarray | None = None) -> tuple[np.n
     M = np.eye(3) if rotation is None else rotation
     orbit = Orbit(orbit.body, M @ orbit.r, M @ orbit.v, orbit.epoch)
     t = data[:, 0]
-    kwargs = gmat.DRAG_SAT if sc["drag"] else {}
+    kwargs = gmat.DRAG_SAT if sc["drag"] else gmat.SRP_SAT if sc.get("srp") else {}
     # Sample urania at every GMAT output time
     tr = orbit.propagate(float(t[-1]), model=MODELS[name], n_points=len(t), **kwargs)
     np.testing.assert_allclose(tr.t, t, atol=1e-6)

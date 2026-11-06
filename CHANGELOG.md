@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Force terms "zonal" (J2-J6; Earth's EGM-08 values in `Earth.zonal`), "sun", "moon" (analytic Moon position,
+  Vallado algorithm 31) and "srp" (solar radiation pressure with Earth's conical shadow, `cr`), and fidelity
+  levels 3 and 4. Validated against NASA GMAT.
+
 ## 0.0.3 (2026-10-23)
 
 ### Added

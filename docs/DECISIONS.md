@@ -295,3 +295,15 @@
   instead of wrong answers, at about 30 µs per solve.
 - Bodies record retrograde orbits (Triton). Hohmann transfers between moons orbiting in opposite directions are
   rejected; transfers to or from a retrograde moon assume the spacecraft orbits in the moon's direction.
+
+## D42. Higher-fidelity forces: zonals, Sun, Moon, radiation pressure (0.1)
+- Zonal harmonics J2-Jn come from one routine (Legendre recursion, gradient of the zonal potential) so any
+  number of terms works; Earth carries EGM-08's J2-J6. Tesseral terms need Earth-fixed coefficients and a
+  precise Earth orientation, which the frame (D31) does not model, so they are left out.
+- Sun and Moon positions are analytic (Vallado algorithms 29 and 31) rather than from a DE ephemeris: no
+  download, no extra dependency, and the Moon's 0.3° error costs 0.24% of the luni-solar effect against GMAT
+  with DE405 (18.7 m out of 7.9 km over 7 days at GPS altitude). That is far below drag uncertainty in LEO.
+- Radiation pressure uses the cannonball model with the conical shadow already used for eclipses, and
+  P = 4.56e-6 N/m² at 1 AU (Montenbruck & Gill); GMAT agrees to 0.015% of the effect.
+- A body counts as Earth for these terms when its μ and radius match Earth's (so modified Earth models such as
+  GMAT's EGM96 constants work).

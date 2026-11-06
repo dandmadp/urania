@@ -1,9 +1,13 @@
 """Orbit propagation: fidelity model selection, results (Trajectory) and metadata.
 
 Fidelity levels (SPEC 2.7):
-    0 "twobody"   two-body
-    1 "j2"        + J2
-    2 "j2+drag"   + atmospheric drag
+    0 "twobody"                      two-body
+    1 "j2"                           + J2
+    2 "j2+drag"                      + atmospheric drag
+    3 "j2+drag+sun+moon"             + Sun and Moon point masses
+    4 "zonal+drag+sun+moon+srp"      + zonal harmonics J2-J6 and solar radiation pressure
+
+Terms: "j2", "zonal" (all zonal harmonics of the body, J2-J6 for Earth), "drag", "sun", "moon", "srp".
 """
 
 from __future__ import annotations
@@ -22,6 +26,8 @@ from . import units
 from .core import elements as _el
 from .core import forces as _forces
 from .core import propagate as _prop
+from .core import sun as _sun
+from .core import thirdbody as _third
 from .environment import Environment, as_environment
 from .time import SECONDS_PER_DAY
 
@@ -30,9 +36,10 @@ if TYPE_CHECKING:
     from .orbits import Orbit
     from .time import Epoch
 
-FIDELITY_MODELS = {0: "twobody", 1: "j2", 2: "j2+drag"}
-_SUPPORTED_TERMS = {"twobody", "j2", "drag"}
-_FUTURE_TERMS = {"moon", "sun", "srp", "harmonics"}
+FIDELITY_MODELS = {0: "twobody", 1: "j2", 2: "j2+drag", 3: "j2+drag+sun+moon", 4: "zonal+drag+sun+moon+srp"}
+_SUPPORTED_TERMS = {"twobody", "j2", "zonal", "drag", "sun", "moon", "srp"}
+_FUTURE_TERMS = {"harmonics", "tesseral"}
+_TERM_ORDER = ("twobody", "j2", "zonal", "drag", "sun", "moon", "srp")
 
 DEFAULT_RTOL = 1e-12
 DEFAULT_ATOL = 1e-8
@@ -44,23 +51,26 @@ def parse_model(model) -> frozenset[str]:
         raise TypeError(f"model must be a string such as 'j2+drag' or a fidelity level 0 to 2: {model!r}")
     if isinstance(model, int):
         if model not in FIDELITY_MODELS:
-            raise NotImplementedError(f"Fidelity level {model} is not supported yet (0 to 2)")
+            raise NotImplementedError(f"Fidelity level {model} is not supported yet (0 to 4)")
         model = FIDELITY_MODELS[model]
     terms = {t.strip().lower() for t in model.split("+")}
     future = terms & _FUTURE_TERMS
     if future:
-        raise NotImplementedError(f"{sorted(future)} perturbations will be supported after the MVP")
+        raise NotImplementedError(f"{sorted(future)} (tesseral harmonics) are not supported yet; "
+                                  f"use 'zonal' for the zonal harmonics")
     unknown = terms - _SUPPORTED_TERMS
     if unknown:
         from ._hints import did_you_mean
 
         raise ValueError(f"Unknown model terms: {sorted(unknown)} (available: {sorted(_SUPPORTED_TERMS)})."
                          + did_you_mean(sorted(unknown)[0], _SUPPORTED_TERMS))
+    if "zonal" in terms:
+        terms.discard("j2")      # zonal includes J2
     return frozenset(terms | {"twobody"})
 
 
 def model_name(terms: frozenset[str]) -> str:
-    return "+".join(t for t in ("twobody", "j2", "drag") if t in terms)
+    return "+".join(t for t in _TERM_ORDER if t in terms)
 
 
 @dataclass(frozen=True)
@@ -272,8 +282,15 @@ def _truncate_at_surface(orbit: Orbit, t, r, v):
             np.vstack((v[:i], v_hit)), True)
 
 
+def _is_earth(body: Body) -> bool:
+    """Earth, or a model of Earth with nearly the same constants (e.g. another gravity field's μ and R)."""
+    from .bodies import Earth
+
+    return body == Earth or (abs(body.mu / Earth.mu - 1.0) < 1e-6 and abs(body.radius / Earth.radius - 1.0) < 1e-4)
+
+
 def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
-              area=None, mass=None, density=None, method: str = "auto",
+              area=None, mass=None, density=None, cr: float = 1.3, method: str = "auto",
               rtol: float = DEFAULT_RTOL, atol: float = DEFAULT_ATOL,
               n_points: int | None = None) -> Trajectory:
     """Propagate an orbit for duration. Implementation of `Orbit.propagate`.
@@ -284,13 +301,17 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
     duration = resolve_duration(duration, None)
     terms = parse_model(model)
     use_drag = "drag" in terms
-    if not use_drag:
-        ignored = [name for name, value in (("area", area), ("mass", mass), ("density", density))
-                   if value is not None]
-        if ignored:
-            warnings.warn(f"{', '.join(ignored)} given but the model {model_name(terms)!r} has no "
-                          f"drag term; use model='j2+drag' (or 'drag') to include drag",
-                          UserWarning, stacklevel=3)
+    use_srp = "srp" in terms
+    ignored = [name for name, value in (("density", density),) if value is not None and not use_drag]
+    if not (use_drag or use_srp):
+        ignored += [name for name, value in (("area", area), ("mass", mass)) if value is not None]
+    if ignored:
+        warnings.warn(f"{', '.join(ignored)} given but the model {model_name(terms)!r} has no "
+                      f"drag term; use model='j2+drag' (or 'drag') to include drag",
+                      UserWarning, stacklevel=3)
+    if terms & {"sun", "moon", "srp"} and not _is_earth(body):
+        raise ValueError(f"Sun, Moon and radiation-pressure terms use geocentric Sun and Moon positions; "
+                         f"the orbit is around {body.name}")
     if n_points is not None and n_points < 2:
         raise ValueError(f"n_points must be at least 2 (start and end): {n_points}")
     if np.linalg.norm(orbit.r) < body.radius:
@@ -316,10 +337,33 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
 
     mu, R, J2, omega = body.mu, body.radius, body.J2, body.rotation_rate
     use_j2 = "j2" in terms
+    use_zonal = "zonal" in terms
+    use_sun, use_moon = "sun" in terms, "moon" in terms
     if use_j2:
         if J2 == 0.0:
             raise ValueError(f"J2 of {body.name} is zero")
         assumptions.append("J2 oblateness only (higher-order gravity ignored), spin axis = inertial z")
+    if use_zonal:
+        zonal = tuple(body.zonal) or ((J2,) if J2 else ())
+        if not zonal:
+            raise ValueError(f"{body.name} has no zonal harmonics")
+        assumptions.append(f"zonal harmonics J2-J{len(zonal) + 1} (tesseral terms ignored), spin axis = inertial z")
+    if use_sun or use_moon or use_srp:
+        jd0 = orbit.epoch.jd
+    if use_sun:
+        assumptions.append("Sun point mass, low-precision analytic position (Vallado algorithm 29)")
+    if use_moon:
+        assumptions.append("Moon point mass, low-precision analytic position (Vallado algorithm 31, ~0.3°)")
+    if use_srp:
+        if area is None or mass is None:
+            raise ValueError("The radiation-pressure model needs area and mass")
+        if not cr > 0.0:
+            raise ValueError(f"cr must be positive: {cr}")
+        cram = cr * units.to_si(area, units.AREA) / units.to_si(mass, units.MASS)
+        if not cram > 0.0:
+            raise ValueError("area and mass must be positive")
+        assumptions.append(f"solar radiation pressure on a sphere (C_R={cr:g}), Earth's conical shadow, "
+                           f"P = 4.56e-6 N/m² at 1 AU")
 
     if use_drag:
         if area is None or mass is None:
@@ -347,8 +391,18 @@ def propagate(orbit: Orbit, duration, *, model="twobody", cd: float = 2.2,
         a = _forces.accel_twobody(r, mu)
         if use_j2:
             a = a + _forces.accel_j2(r, mu, R, J2)
+        if use_zonal:
+            a = a + _third.accel_zonal(r, mu, R, zonal)
         if use_drag:
             a = a + _forces.accel_drag(r, v, rho(r, t0 + t), ballistic, omega)
+        if use_sun or use_srp:
+            r_sun = _sun.sun_position(jd0 + t / SECONDS_PER_DAY)
+            if use_sun:
+                a = a + _third.accel_third_body(r, r_sun, _third.MU_SUN)
+            if use_srp:
+                a = a + _third.accel_srp(r, r_sun, cram, R)
+        if use_moon:
+            a = a + _third.accel_third_body(r, _third.moon_position(jd0 + t / SECONDS_PER_DAY), _third.MU_MOON)
         return a
 
     def hit_surface(t, y):
